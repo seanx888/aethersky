@@ -9,7 +9,7 @@
 //   PUT    /api/auth   { current, next } → { user } + new session cookie (change your own password; keeps remember)
 //   DELETE /api/auth   → sign out (clears the cookie)
 import {
-  authConfigured, syncConfigured, syncProblems, authStore, currentUser, whoIs, matches, passwordProblem, hashPassword,
+  authConfigured, syncConfigured, syncProblems, authStore, currentUser, whoIs, matches, passwordProblem, hashPassword, mustChange,
   signSession, sessionCookie, clearCookie, sameOrigin, REMEMBER_DAYS,
 } from './_lib/auth.mjs';
 
@@ -64,7 +64,7 @@ export async function handle(request, { env = process.env, fetchImpl = fetch, no
       return json({ error: 'wrong-password' }, 401);
     }
     const remember = body.remember === true;
-    return json({ user: { name, mustChange: !own[name]?.hash } }, 200, { 'Set-Cookie': sessionCookie(signSession(name, env, own, { now, remember }), { remember }) });
+    return json({ user: { name, mustChange: mustChange(own, name) } }, 200, { 'Set-Cookie': sessionCookie(signSession(name, env, own, { now, remember }), { remember }) });
   }
 
   // PUT — choose a new password (needs the current sign-in AND the current password, so a stolen cookie is not enough)
