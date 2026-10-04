@@ -106,11 +106,26 @@ App 內新增的 Real Tracker → Vercel Function → 寫入 GitHub Variable `TR
 - **記住我**（預設勾選）：這台裝置 90 天內免再登入，用得越久會自動續期；沒勾選則關閉瀏覽器就登出（最長 24 小時）。公用電腦請取消勾選，或在 設定 → 同步 按「登出」。
 
 **密碼怎麼運作**
+0. **登入前的公開頁面不顯示任何帳號資訊**（沒有 USERA／USERB 字樣），只提示「如想取得測試用個人帳號，可聯繫 Blue」。
 1. **初始密碼**放在 Vercel（`PASSWORD_USERA`、`PASSWORD_USERB`）。用初始密碼登入後，App 會**立刻要求設定你自己的新密碼**；改完之前「同步追蹤清單」是鎖住的。
 2. **你自己的密碼**只以加鹽的 scrypt 雜湊存在 GitHub Variable `AUTH`（App 用 `TRACKERS_GITHUB_TOKEN` 自動寫入，不用手動建立）。改完後初始密碼就作廢；改密碼會把你在其他裝置的登入一併登出。
-3. **忘記密碼**：GitHub → Settings → Secrets and variables → Actions → **Variables** → `AUTH` → 編輯，把你的那一項（`"usera": {…}` 或 `"userb": {…}`）刪掉（或整個 Variable 刪除）→ 又可以用 Vercel 的初始密碼登入，並再次被要求改密碼。
-   ⚠️ 初始密碼若曾出現在聊天或截圖，重設前先到 Vercel 換成新的隨機初始密碼。
-4. **想暫時踢掉某人**：從 Vercel 刪掉他的 `PASSWORD_XXX`，他的登入立刻失效。
+3. **忘記密碼／重設 → 發一組隨機臨時密碼**（推薦，不用動 Vercel、不用 Redeploy）：在**自己的電腦**執行
+   ```bash
+   node scripts/reset-password.mjs usera            # 只產生並印出，不寫入任何東西
+   read -rs TRACKERS_GITHUB_TOKEN && export TRACKERS_GITHUB_TOKEN     # 貼上 B1 的權杖（不會顯示、不進 shell 歷史）
+   node scripts/reset-password.mjs usera --apply    # 產生並直接寫入 GitHub Variable AUTH
+   ```
+   會印出一組 `XXXX-XXXX-XXXX-XXXX`（80 bits 隨機，只顯示一次）。**不加 `--apply`** 時還會印出一行 `"usera": {"hash":…,"temp":true}`，到 GitHub → Settings → Secrets and variables → Actions → **Variables** → `AUTH` 只替換 `"usera"` 那一項（保留別人的）即可。
+   - 對方用臨時密碼登入 → App **立刻要求改成自己的密碼**（改完前不能同步／搜尋）；舊密碼與**所有已登入裝置立刻失效**；另一個人不受影響。
+   - ⚠️ **只在自己的電腦跑，不要放進 GitHub Actions**：repo 是公開的，Actions log 會露出密碼。臨時密碼用私訊／當面轉交，不要貼在 issue、公開聊天或截圖。
+   - 手動備案（不用腳本）：GitHub → `AUTH` → 刪掉那個人的那一項（`"usera": {…}`）→ 又可以用 Vercel 的初始密碼登入並被要求改密碼。⚠️ 初始密碼若曾出現在聊天或截圖，先到 Vercel 換成新的隨機初始密碼。
+4. **想暫時踢掉某人**：從 Vercel 刪掉他的 `PASSWORD_XXX`，他的登入立刻失效。（反過來，`PASSWORD_USERx` 要一直留著：它決定「誰是有效使用者」，重設後即使被自己的密碼取代也不要刪。）
+5. **新增一位測試帳號**（有人向 Blue 要帳號時）：Vercel 加一個 `PASSWORD_USERC`（填**沒人知道的隨機長字串**即可）→ Redeploy → `node scripts/reset-password.mjs userc --apply` → 把印出的臨時密碼私下給對方。（想讓他出現在「通知誰」選項：把 `"userc"` 加進 `config/routes.json` 的 `people`。）
+
+**建議設定（重設用）**
+- 權杖（B1）：只勾 **Variables: Read and write**、只選這個 repo、1 年到期並記在日曆；重設時才在本機臨時 `export`，不要寫進任何檔案或 commit。
+- Vercel Firewall（Settings → Firewall → Rate Limiting）：對 `/api/auth` 設「同一 IP 每分鐘 10 次」之類的限速，補強目前每次錯誤只延遲 0.7 秒的防猜密碼機制。
+- `/api/auth` 的 `problems` 欄位（公開，只列缺少的環境變數**名稱**，含 `PASSWORD_USERA`）是排查設定用；穩定後若連名稱也不想公開，可再把它改成只在登入後回傳。
 
 ### B1. GitHub fine-grained 權杖
 **放：Vercel env `TRACKERS_GITHUB_TOKEN`（B2）。** 追蹤清單與密碼雜湊都靠它寫入 GitHub Variables。

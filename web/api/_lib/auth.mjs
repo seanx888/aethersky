@@ -9,8 +9,9 @@
 //   1. INITIAL passwords, from Vercel env PASSWORD_USERA / PASSWORD_USERB. They only get you as far as the
 //      "choose your own password" screen — tracker sync stays locked until you have changed it.
 //   2. Your OWN password, stored as a salted scrypt hash in the repository variable AUTH (never the password itself).
-//      Once it exists it replaces the initial one. Forgot it? Delete your entry from the AUTH variable (or the whole
-//      variable) in GitHub → the initial password works again and asks for a new one.
+//      Once it exists it replaces the initial one. Forgot it? `node scripts/reset-password.mjs usera` hands out a fresh
+//      random password (stored as a hash flagged `temp`, so it too only gets you to the "choose your own" screen).
+//      Or delete your entry from the AUTH variable in GitHub → the initial password works again.
 //
 // Vercel → Project → Settings → Environment Variables:
 //   PASSWORD_USERA, PASSWORD_USERB   initial passwords, each ≥ 12 characters and different from each other.
@@ -18,7 +19,7 @@
 //                                  only names of the form USER<letter> are read.
 //   SESSION_SECRET                 random string, ≥ 32 characters (signs the cookie; changing it signs everyone out)
 //   TRACKERS_GITHUB_TOKEN          (also stores the AUTH variable) — see api/trackers.mjs
-import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, randomInt, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import { variables } from './github.mjs';
 
@@ -98,14 +99,17 @@ export async function verifyHash(password, stored) {
 }
 
 // ── Where changed passwords live: the AUTH repository variable ─────────────
-// State shape: { usera: { hash, at }, userb: { hash, at } } — only people who have chosen their own password.
+// State shape: { usera: { hash, at }, userb: { hash, at, temp? } } — only people who have a password of their own.
+// `temp: true` marks a password somebody else handed out (a reset): it signs in, but the person must replace it.
 const cleanState = (v) => {
   const out = {};
   for (const [name, e] of Object.entries(v && typeof v === 'object' && !Array.isArray(v) ? v : {})) {
-    if (e && typeof e.hash === 'string') out[name] = { hash: e.hash, at: String(e.at || '') };
+    if (e && typeof e.hash === 'string') out[name] = { hash: e.hash, at: String(e.at || ''), ...(e.temp === true && { temp: true }) };
   }
   return out;
 };
+/** True while `name` still has to choose a password of their own (initial or handed-out one). */
+export const mustChange = (own, name) => !own[name]?.hash || own[name].temp === true;
 const caches = new WeakMap(); // per fetch implementation, so tests never see production state
 
 export function authStore(env, fetchImpl = fetch) {
@@ -132,10 +136,11 @@ export function authStore(env, fetchImpl = fetch) {
       const hit = cache().get(key);
       return !force && hit && hit.until > Date.now() ? hit.state : fresh();
     },
-    /** Record `name`'s new password hash (re-reads first so a change by the other person is not lost). */
-    async setHash(name, hash, at) {
+    /** Record `name`'s new password hash (re-reads first so a change by the other person is not lost).
+     *  `temp` = a handed-out password that must be changed at the next sign-in (a reset); omitted → their own choice. */
+    async setHash(name, hash, at, { temp = false } = {}) {
       const state = await fresh();
-      state[name] = { hash, at };
+      state[name] = temp ? { hash, at, temp: true } : { hash, at };
       await gh.write(AUTH_VAR, JSON.stringify(state));
       cache().set(key, { state, until: Date.now() + CACHE_MS });
       return state;
@@ -201,10 +206,22 @@ export const sessionCookie = (token, { remember = false } = {}) =>
   `${COOKIE}=${token}; Path=/;${remember ? ` Max-Age=${REMEMBER_DAYS * 86400};` : ''} HttpOnly; Secure; SameSite=Lax`;
 export const clearCookie = () => `${COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 
-/** { name, mustChange, remember, exp } for the signed-in person, or null. mustChange = still on the initial password. */
+/** { name, mustChange, remember, exp } for the signed-in person, or null. mustChange = still on the initial or a handed-out password. */
 export function currentUser(request, env, own, now = Date.now()) {
   const s = parseSession(cookieValue(request, COOKIE), env, own, now);
-  return s ? { name: s.name, mustChange: !own[s.name]?.hash, remember: s.remember, exp: s.exp } : null;
+  return s ? { name: s.name, mustChange: mustChange(own, s.name), remember: s.remember, exp: s.exp } : null;
+}
+
+// ── Reset: a fresh random password ──────────────────────────────────────────
+// 4 × 4 characters from 32 symbols (no 0/O/1/I, so it survives being read out loud) = 80 bits, e.g. K7QM-2XWD-9HPT-VR4N.
+const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+export const generatePassword = () =>
+  Array.from({ length: 4 }, () => Array.from({ length: 4 }, () => PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)]).join('')).join('-');
+
+/** A new random password and the AUTH entry that stores it: { password, entry: { hash, at, temp: true } }. */
+export async function temporaryPassword({ now = Date.now() } = {}) {
+  const password = generatePassword();
+  return { password, entry: { hash: await hashPassword(password), at: new Date(now).toISOString(), temp: true } };
 }
 
 /** Why a proposed new password is not acceptable, or null when it is fine. */

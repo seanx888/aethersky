@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   passwords, whoIs, matches, hashPassword, verifyHash, authStore, signSession, readSession, currentUser, passwordProblem,
   sameOrigin, authConfigured, syncConfigured, syncProblems, sessionCookie, COOKIE, AUTH_VAR, REMEMBER_DAYS, SESSION_HOURS,
+  generatePassword, temporaryPassword, mustChange, MIN_PASSWORD,
 } from '../web/api/_lib/auth.mjs';
 import { handle } from '../web/api/auth.mjs';
 import { fakeGitHub } from './helpers/github.mjs';
@@ -258,4 +259,58 @@ test('a remembered sign-in survives a password change and renews itself once pas
   assert.match(changed.headers.get('set-cookie'), /Max-Age=/);
   const changedShort = await run(call('PUT', { current: INITIAL.userb, next: 'userb-own-password-9' }, { cookie: short }), gh);
   assert.doesNotMatch(changedShort.headers.get('set-cookie'), /Max-Age/);
+});
+
+test('reset: random passwords are readable, unique and long enough', () => {
+  const seen = new Set();
+  for (let i = 0; i < 200; i++) {
+    const pw = generatePassword();
+    assert.match(pw, /^[A-HJ-NP-Z2-9]{4}(-[A-HJ-NP-Z2-9]{4}){3}$/, 'no 0 / O / 1 / I');
+    assert.ok(pw.length >= MIN_PASSWORD);
+    seen.add(pw);
+  }
+  assert.equal(seen.size, 200);
+});
+
+test('reset: a handed-out password signs in but must be replaced; the old password and cookies die', async () => {
+  const gh = fakeGitHub();
+  // USERA had chosen their own password and is signed in on a phone; USERB has chosen one too.
+  for (const [name, next] of [['usera', 'usera-own-password-9'], ['userb', 'userb-own-password-8']]) {
+    const login = await run(call('POST', { password: INITIAL[name] }), gh);
+    assert.equal((await run(call('PUT', { current: INITIAL[name], next }, { cookie: cookieOf(login) }), gh)).status, 200);
+  }
+  const phone = cookieOf(await run(call('POST', { password: 'usera-own-password-9', remember: true }), gh));
+
+  // The reset: what scripts/reset-password.mjs stores.
+  const { password, entry } = await temporaryPassword({ now: NOW });
+  assert.deepEqual(Object.keys(entry).sort(), ['at', 'hash', 'temp']);
+  assert.ok(!JSON.stringify(entry).includes(password), 'only the hash is stored');
+  await authStore(env, gh.fetchImpl).setHash('usera', entry.hash, entry.at, { temp: true });
+  assert.equal(JSON.parse(gh.store.vars[AUTH_VAR]).usera.temp, true);
+
+  assert.equal((await (await run(call('GET', null, { cookie: phone }), gh)).json()).user, null, 'the phone is signed out');
+  assert.equal((await run(call('POST', { password: 'usera-own-password-9' }), gh)).status, 401, 'old own password is dead');
+  assert.equal((await run(call('POST', { password: INITIAL.usera }), gh)).status, 401, 'so is the initial one');
+  assert.deepEqual((await (await run(call('POST', { password: 'userb-own-password-8' }), gh)).json()).user, { name: 'userb', mustChange: false }, 'USERB untouched');
+
+  const login = await run(call('POST', { password }), gh);
+  assert.deepEqual(await login.json(), { user: { name: 'usera', mustChange: true } });
+  const cookie = cookieOf(login);
+  assert.deepEqual((await (await run(call('GET', null, { cookie }), gh)).json()).user, { name: 'usera', mustChange: true });
+  assert.equal((await run(call('PUT', { current: password, next: password }, { cookie }), gh)).status, 400, 'cannot keep the handed-out one');
+
+  const done = await run(call('PUT', { current: password, next: 'usera-brand-new-pass' }, { cookie }), gh);
+  assert.deepEqual(await done.json(), { user: { name: 'usera', mustChange: false } });
+  assert.equal('temp' in JSON.parse(gh.store.vars[AUTH_VAR]).usera, false, 'temp flag cleared');
+  assert.equal((await run(call('POST', { password }), gh)).status, 401, 'the handed-out password is spent');
+  assert.deepEqual((await (await run(call('POST', { password: 'usera-brand-new-pass' }), gh)).json()).user, { name: 'usera', mustChange: false });
+});
+
+test('reset: only a literal temp:true counts; the flag survives a reload', async () => {
+  assert.equal(mustChange({}, 'usera'), true);
+  assert.equal(mustChange({ usera: { hash: 'h', at: '' } }, 'usera'), false);
+  assert.equal(mustChange({ usera: { hash: 'h', at: '', temp: true } }, 'usera'), true);
+  const gh = fakeGitHub({ [AUTH_VAR]: JSON.stringify({ usera: { hash: 'h', at: 'x', temp: true }, userb: { hash: 'g', at: 'y', temp: 'yes' } }) });
+  const state = await authStore(env, gh.fetchImpl).load({ force: true });
+  assert.deepEqual(state, { usera: { hash: 'h', at: 'x', temp: true }, userb: { hash: 'g', at: 'y' } });
 });

@@ -339,8 +339,8 @@ The Routes tab opens on a search form (round trip / one way / multi-city up to 5
 | 沒收到推播 | 目前暫停中（Variable `NOTIFICATIONS=on` 才會開始）？主題名稱是否一致？今天沒有 ≥ 72 分的新好價？示範資料不推播 |
 | 每天沒有自動執行 | 預設分支必須是 `main`（第 1 步）|
 | App 資料沒更新 | 看 Actions 當天是否綠色 ✓；App 右上 ↻ 重新整理（GitHub 快取約 5 分鐘）|
-| 同步顯示「伺服器尚未設定」| 畫面會列出缺少或無效的變數（也可開 `/api/auth` 看 `problems`）：`PASSWORD_USERA` / `PASSWORD_USERB`（≥ 12 字元、不可相同）、`SESSION_SECRET`（≥ 32 字元）、`TRACKERS_GITHUB_TOKEN`；設定後要 Redeploy |
-| 登入顯示「密碼不正確」| 輸入的不是 USERA 或 USERB 目前的密碼；改過密碼後初始密碼就作廢。忘記了 → SECRETS.md 第 B 節「忘記密碼」|
+| 同步顯示「同步功能目前無法使用」| 公開頁面不再列出變數名稱；開 `/api/auth` 看 `problems`：`PASSWORD_USERA` / `PASSWORD_USERB`（≥ 12 字元、不可相同）、`SESSION_SECRET`（≥ 32 字元）、`TRACKERS_GITHUB_TOKEN`；設定後要 Redeploy |
+| 登入顯示「密碼不正確」| 輸入的不是 USERA 或 USERB 目前的密碼；改過密碼後初始密碼就作廢。忘記了 → `node scripts/reset-password.mjs usera`（SECRETS.md 第 B 節「忘記密碼／重設」）|
 | 登入後一直要求更改密碼 | 還在用初始密碼；設定新密碼（≥ 12 字元）後才會開始同步 |
 | 同步失敗 | 權杖過期或沒有 **Variables: Read and write** 權限（第 8 步）|
 | 搜尋顯示「即時搜尋尚未啟用」| Vercel 環境變數沒有 `SERPAPI_KEY`，或設定後沒有 Redeploy（第 10 步）。還沒設定時表單會給 Google Flights / KAYAK 連結 |

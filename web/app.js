@@ -55,7 +55,7 @@ const TABS = ['deals', 'special', 'routes', 'members', 'settings'];
 const state = {
   data: null, deals: [], history: null, tab: 'deals', dealsView: 'fares', special: 'ex', routesView: 'search', error: null, dropped: 0, limit: 40, installEvt: null, exOpen: new Set(), filtersOpen: false,
   trackerData: null, trkOpen: new Set(),
-  sync: { configured: null, status: 'idle', user: null, problems: [], pwMsg: '' },
+  sync: { configured: null, status: 'idle', user: null, pwMsg: '' },
   memberForm: null, memberErr: null, memberReveal: new Set(), memberFilter: 'all',
 };
 
@@ -547,7 +547,8 @@ function renderRoutes() {
 // ───────────────────────── Real Tracker (Routes tab, default view) ─────────────────────────
 // Trips are kept on this device (prefs.trackers) and, when sync is set up, in the private GitHub
 // variable TRACKERS that the daily scanner reads. Results come from data/trackers.json.
-const people = () => (state.data?.people?.length ? state.data.people : []);
+// Who the people are is only shown once signed in — a visitor sees no account names anywhere.
+const people = () => (state.data?.people?.length && state.sync.user && !state.sync.user.mustChange ? state.data.people : []);
 const capName = (n) => (/^user[a-z]$/i.test(n) ? String(n).toUpperCase() : String(n || '').replace(/^./, (c) => c.toUpperCase()));
 // New trackers notify whoever is signed in (the password says who that is); otherwise everyone.
 const myNotify = () => (state.sync.user && people().includes(state.sync.user.name) ? [state.sync.user.name] : 'all');
@@ -724,7 +725,6 @@ async function syncPing() {
     const info = ok ? await res.json() : {};
     state.sync.configured = !!info.configured;
     state.sync.user = info.user || null;
-    state.sync.problems = Array.isArray(info.problems) ? info.problems : [];
   } catch {
     state.sync.configured = false;
   }
@@ -794,9 +794,9 @@ async function pushTrackers() {
 
 function syncStatusText() {
   const s = state.sync;
-  if (s.configured === false) return s.problems.length ? `${t('syncStatus_off')} ${t('syncMissing', { list: s.problems.join(', ') })}` : t('syncStatus_off');
+  if (s.configured === false) return t('syncStatus_off');
   if (s.configured == null) return t('syncStatus_busy');
-  if (!s.user) return s.status === 'wrong' ? t('syncStatus_wrong') : s.status === 'auth' ? t('syncStatus_auth') : t('syncStatus_nokey');
+  if (!s.user) return s.status === 'wrong' ? t('syncStatus_wrong') : s.status === 'auth' ? t('syncStatus_auth') : t('contactBlue');
   if (s.user.mustChange || s.status === 'mustchange') return t('syncStatus_change');
   if (s.status === 'ok') return t('syncStatus_ok', { t: fmtWhen(prefs.syncedAt) });
   if (s.status === 'auth' || s.status === 'error' || s.status === 'busy') return t('syncStatus_' + s.status);
@@ -865,7 +865,8 @@ function renderGate() {
        <input type="password" id="gate-pass" autocomplete="current-password" placeholder="${esc(t('syncPassword'))}" aria-label="${esc(t('syncPassword'))}">
        <label class="check"><input type="checkbox" id="gate-remember" ${prefs.remember !== false ? 'checked' : ''}> <span>${esc(t('rememberMe'))}</span></label>
        ${fail ? `<span class="help warn-text" role="alert">${esc(t(fail))}</span>` : ''}
-       <button type="submit" class="btn primary block" data-act="gate-login" ${busy ? 'disabled' : ''}>${icon('cloud-check')}${esc(t('syncLogin'))}</button>`
+       <button type="submit" class="btn primary block" data-act="gate-login" ${busy ? 'disabled' : ''}>${icon('cloud-check')}${esc(t('syncLogin'))}</button>
+       <p class="gate-sub">${esc(t('contactBlue'))}</p>`
     : `${notice(t('pwMustChange'), true)}
        ${lastLoginPassword ? '' : `<input type="password" id="gate-current" autocomplete="current-password" placeholder="${esc(t('pwCurrent'))}" aria-label="${esc(t('pwCurrent'))}">`}
        <input type="password" id="gate-new" autocomplete="new-password" minlength="12" placeholder="${esc(t('pwNew'))}" aria-label="${esc(t('pwNew'))}">
