@@ -22,6 +22,7 @@ import { runClick, runField } from './ui/registry.js';
 import { bindSearch, searchHtml, airportList, pingSearch, openSearch, editTracker, loadParam } from './ui/search.js';
 import { bindCommunity, communityHtml, promosHtml, loadCommunity, communityCounts, communityStatus, walletPromosHtml } from './ui/community.js';
 import { bindPlaybooks, playbooksHtml, openPlaybook, revealPlaybook } from './ui/playbooks.js';
+import { bindFlights, flightsHtml, flightsView, setFlightsView } from './ui/flights.js';
 
 // ───────────────────────── prefs (per-device) ─────────────────────────
 const PREF_KEY = 'bct.prefs.v1';
@@ -51,7 +52,7 @@ function savePrefs() {
 }
 
 // ───────────────────────── state ─────────────────────────
-const TABS = ['deals', 'special', 'routes', 'members', 'settings'];
+const TABS = ['deals', 'special', 'routes', 'flights', 'members', 'settings'];
 const state = {
   data: null, deals: [], history: null, tab: 'deals', dealsView: 'fares', special: 'ex', routesView: 'search', error: null, dropped: 0, limit: 40, installEvt: null, exOpen: new Set(), filtersOpen: false,
   trackerData: null, trkOpen: new Set(),
@@ -123,6 +124,7 @@ function readHash() {
     state.special = { pos: 'pos', play: 'play' }[sub] || 'ex';
     if (state.special === 'play' && id) openPlaybook(id);
   }
+  if (state.tab === 'flights') setFlightsView(sub);
   if (state.tab === 'routes') {
     state.routesView = { track: 'track', list: 'list' }[sub] || 'search';
     if (sub === 'search' && query.get('s')) loadParam(query.get('s'));
@@ -257,7 +259,7 @@ function render() {
   document.querySelectorAll('.tabbar button').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === state.tab ? 'page' : 'false'));
   document.querySelectorAll('.view').forEach((v) => (v.hidden = v.id !== `view-${state.tab}`));
   renderBanner();
-  ({ deals: renderDeals, special: renderSpecial, routes: renderRoutes, members: renderMembers, settings: renderSettings })[state.tab]();
+  ({ deals: renderDeals, special: renderSpecial, routes: renderRoutes, flights: renderFlights, members: renderMembers, settings: renderSettings })[state.tab]();
 }
 
 function renderBanner() {
@@ -912,6 +914,7 @@ function skipGate() {
 function renderAuth() {
   renderSettings();
   if (state.tab === 'routes') renderRoutes();
+  if (state.tab === 'flights') renderFlights();
   renderGate();
 }
 
@@ -990,6 +993,11 @@ async function commitTracker(tracker) {
   const ok = await pushTrackers();
   toast(t(ok ? 'trkSaved' : 'trkSavedLocal'), 5000);
   return { ok };
+}
+
+// ───────────────────────── My flights tab (private flight log, all on this device) ─────────────────────────
+function renderFlights() {
+  $('#view-flights').innerHTML = flightsHtml();
 }
 
 // ───────────────────────── Members tab (member wallet) ─────────────────────────
@@ -1319,6 +1327,7 @@ document.addEventListener('click', async (e) => {
       deals: { community: '/community', promos: '/promos' }[state.dealsView] || '',
       special: { pos: '/pos', play: '/play' }[state.special] || '',
       routes: { track: '/track', list: '/list' }[state.routesView] || '',
+      flights: { past: '/past', stats: '/stats' }[flightsView()] || '',
     }[tab.dataset.tab] || '';
     go(`#${tab.dataset.tab}${sub}`);
     return;
@@ -1612,6 +1621,26 @@ bindPlaybooks({
   },
   openSearch,
 });
+bindFlights({
+  user: () => state.sync.user?.name || null,
+  authState: () => (state.sync.configured === false ? 'off' : state.sync.configured === null ? 'pending' : state.sync.user && !state.sync.user.mustChange ? 'ready' : 'signin'),
+  requireSignIn: () => {
+    state.gateSkipped = false;
+    try {
+      sessionStorage.removeItem(GATE_SKIP_KEY);
+    } catch {
+      /* private mode */
+    }
+    renderGate();
+  },
+  members: () => members,
+  capName,
+  go,
+  toast,
+  refresh: () => {
+    if (state.tab === 'flights') renderFlights();
+  },
+});
 bindCommunity({
   today: todayTpe,
   fetchData,
@@ -1681,7 +1710,7 @@ syncPing()
   })
   .then(() => {
     savePrefs();
-    if ((state.tab === 'routes' || state.tab === 'settings') && !typing()) render();
+    if ((state.tab === 'routes' || state.tab === 'flights' || state.tab === 'settings') && !typing()) render();
   });
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});

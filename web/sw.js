@@ -1,5 +1,5 @@
 // Service worker: offline app shell + network-first fare data.
-const VERSION = 'aethersky-v10';
+const VERSION = 'aethersky-v11';
 const SHELL = [
   './',
   'index.html',
@@ -12,6 +12,7 @@ const SHELL = [
   'core/airports.js',
   'core/community.js',
   'core/exclusion.js',
+  'core/flights.js',
   'core/links.js',
   'core/markets.js',
   'core/places.js',
@@ -24,6 +25,7 @@ const SHELL = [
   'ui/community-model.js',
   'ui/community.js',
   'ui/deal.js',
+  'ui/flights.js',
   'ui/fmt.js',
   'ui/kit.js',
   'ui/playbooks.js',
