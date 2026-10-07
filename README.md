@@ -30,6 +30,7 @@ China Airlines (CI, 中華航空) is Taiwanese and fully supported.
 | 📣 | **今日好價 → 活動**：航空與**飯店集團**（也含郵輪、租車）的票價折扣、指定航線促銷、**會籍 Match**、里程加碼、兌換優惠；有你會員的排最前、顯示期限；新活動推播／Email | Airline **and hotel-group** promotions — fare sales, route promos, **status matches**, bonus miles — with deadlines, your programs first, and push / e-mail alerts |
 | 🧪 | **特殊票價 → 玩法庫**：外站票、聯運多段票（阿提哈德範例）、停留點、錯誤票價、外國站結帳、隱藏城市的邏輯／步驟／風險＋**成本試算** | Playbooks for each special ticketing trick: logic, steps, risks, worked example and a total-cost calculator |
 | 💳 | **會員卡夾**：航空、**飯店、租車**會員的號碼、等級、到期、里程；只存本機，可匯出備份；好價詳情顯示「可累積到你的會員」，並列出與你會員相關的活動 | Member wallet for airline, **hotel and car** programs (on-device), “earn with your memberships” on each deal and promotions for programs you hold |
+| ✈️ | **我的航班**（需登入）：輸入自己的訂位（航班、日期、座位、**訂位代號、機票號碼**、連結會員卡、票價）；未來航班倒數＋報到提醒、一鍵新增回程；過去航班自動變飛行紀錄與統計（公里、機場、國家、航空公司）。**資料只存這台裝置、依帳號分開，不上雲端、不同步、不公開**；可匯出／匯入 JSON、匯出 CSV | My flights (sign-in required): your own bookings with booking reference and ticket number, countdown + check-in hint, one-tap return, and a flight log with stats. **Stored only on this device, per account — never uploaded, synced or published**; JSON/CSV export and JSON import |
 | 📈 | 航線價格歷史、30 天／歷史最低、目標價提醒 | Per-route price history, 30-day/all-time lows, target-price alerts |
 | 🔗 | 一鍵開啟 Google Flights / Skyscanner / KAYAK / 航空公司官網（商務艙預設）| One-tap deep links, business cabin pre-selected |
 | ☁️ | Vercel 託管，資料每天由 GitHub Actions 更新、App 直接讀取 | Hosted on Vercel; data refreshed daily from the repo |
