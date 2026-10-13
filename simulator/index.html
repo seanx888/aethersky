@@ -128,7 +128,7 @@ h1{background:linear-gradient(90deg,var(--ink),color-mix(in srgb,var(--ink) 55%,
   <header>
     <div>
       <h1>台彩開獎模擬室</h1>
-      <p class="sub">Super Bingo 氣流式開獎機 · 物理模擬 · 大樂透 / 威力彩 / 今彩539 · 統計資料快照 2026-10-13</p>
+      <p class="sub">Super Bingo Draw Machine 氣流式開獎機 · 物理模擬＋球重模型 · 大樂透 / 威力彩 / 今彩539 · 統計資料快照 2026-10-13</p>
     </div>
     <div class="onair" id="onair"><i></i><span>Standby</span></div>
   </header>
@@ -149,6 +149,9 @@ h1{background:linear-gradient(90deg,var(--ink),color-mix(in srgb,var(--ink) 55%,
     <label class="inline" for="mixsec">攪拌秒數
       <input type="number" id="mixsec" min="2" max="30" value="10" style="width:4.5em">
     </label>
+    <label class="inline" for="useW"><input type="checkbox" id="useW" checked> 套用球重</label>
+    <label class="inline" for="gamma">重量敏感度 γ <input type="number" id="gamma" min="0" max="5" step="0.5" value="1" style="width:4.5em"></label>
+    <button class="btn" id="reweigh">重新秤球</button>
   </div>
 
   <div class="grid2">
@@ -171,6 +174,13 @@ h1{background:linear-gradient(90deg,var(--ink),color-mix(in srgb,var(--ink) 55%,
   <section class="panel">
     <h2>模擬紀錄 <span>本次瀏覽中開出的每一期</span></h2>
     <div class="hist" id="hist"><div style="color:var(--muted)">尚無紀錄，按「開始開獎」。</div></div>
+  </section>
+
+  <section class="panel" id="wtPanel">
+    <h2>⚖️ 球重設定 · Super Bingo Draw Machine <span>每顆 2.500–2.775 g · 單顆誤差 ±0.075 g · 同組最重與最輕差 ≤ 0.15 g</span></h2>
+    <canvas id="wtChart" class="chart sm" aria-label="各號碼球重"></canvas>
+    <div class="stats" id="wtStats"></div>
+    <p class="note">每次「重新秤球」會隨機產生一組符合規格的球：先抽一個組平均重量，每顆再加上 ±0.075 g 的誤差，所以全組差距一定 ≤ 0.15 g。開獎機的氣流推力相同，<b>較輕的球加速度較大</b>（a = F / m），比較容易被吹到上方吸球口。γ 表示重量對中獎機率的影響有多強：γ=1 代表被吸出的機率和 1/重量 成正比，γ=0 代表重量完全不影響。實際的 γ 要靠真實開獎資料來推估。</p>
   </section>
 
   <section class="panel">
@@ -223,6 +233,7 @@ h1{background:linear-gradient(90deg,var(--ink),color-mix(in srgb,var(--ink) 55%,
     <div class="controls">
       <label class="inline" for="pwBias">某顆球偏差 % <input type="number" id="pwBias" min="1" max="100" value="10" style="width:4.5em"></label>
       <label class="inline" for="pwTrials">每點重複 <select id="pwTrials"><option>50</option><option selected>100</option><option>200</option></select></label>
+      <button class="btn" id="pwFromW">用目前球組換算偏差</button>
       <button class="btn primary" id="runPw">計算偵測率</button>
       <span class="inline" id="pwBusy"></span>
     </div>
@@ -280,11 +291,35 @@ function loadBalls(ch){
 }
 function spawn(ch){
   const num=ch.loadQ.shift();
-  ch.balls.push({num,x:ch.cx+(rnd()-.5)*ch.R*0.3,y:ch.cy-ch.R+ch.br*2,vx:(rnd()-.5)*ch.R*0.5,vy:ch.R*0.6,bias:biasFor(ch.pool,num)});
+  ch.balls.push({num,x:ch.cx+(rnd()-.5)*ch.R*0.3,y:ch.cy-ch.R+ch.br*2,vx:(rnd()-.5)*ch.R*0.5,vy:ch.R*0.6,bias:biasFor(ch.pool,num),mf:wFactor(chambers.indexOf(ch),num)});
 }
 function biasFor(pool,num){
   const bn=+$('biasnum').value,bp=+$('biaspct').value/100;
   return (bn===num && pool===activePoolObj()) ? bp : 0;
+}
+/* ---------- Ball weights (Super Bingo spec) ---------- */
+const W_MIN=2.5,W_MAX=2.775,W_TOL=0.075,W_REF=2.6375;
+let WT={};
+function genWeights(n){const mean=W_MIN+W_TOL+rnd()*(W_MAX-W_MIN-2*W_TOL);const a=[0];
+  for(let i=1;i<=n;i++)a.push(+Math.min(W_MAX,Math.max(W_MIN,mean+(rnd()*2-1)*W_TOL)).toFixed(4));return a}
+function weighAll(){WT={};for(const [k,g] of Object.entries(GAMES))WT[k]=g.pools.map(p=>genWeights(p.n))}
+const useW=()=>$('useW').checked, gam=()=>Math.max(0,+$('gamma').value||0);
+function wFactor(pi,num){return useW()?Math.pow(W_REF/WT[gameKey][pi][num],gam()):1}
+function renderWt(){
+  const pi=+$('realPool').value||0,p=GAMES[gameKey].pools[pi],w=WT[gameKey][pi];let hi=1,lo=1,sum=0;
+  for(let i=1;i<=p.n;i++){if(w[i]>w[hi])hi=i;if(w[i]<w[lo])lo=i;sum+=w[i]}
+  const {x,w:cw}=setupCanvas($('wtChart'),170),L=46,B=22,T=12,pw=cw-L-8,ph=170-B-T,y0=W_MIN-0.01,y1=W_MAX+0.01,Y=v=>T+ph-(v-y0)/(y1-y0)*ph,bw=pw/p.n;
+  x.font='11px "JetBrains Mono",monospace';x.textAlign='right';x.textBaseline='middle';
+  [W_MIN,2.6,2.7,W_MAX].forEach(v=>{x.strokeStyle=css('--line');x.globalAlpha=.6;x.beginPath();x.moveTo(L,Y(v));x.lineTo(cw-8,Y(v));x.stroke();x.globalAlpha=1;x.fillStyle=css('--muted');x.fillText(v.toFixed(3),L-4,Y(v))});
+  for(let i=1;i<=p.n;i++){const bx=L+(i-1)*bw;x.fillStyle=i===lo?css('--good'):i===hi?css('--accent'):colorOf(i,p.n);
+    x.fillRect(bx+bw*.15,Y(w[i]),Math.max(1,bw*.7),Y(y0)-Y(w[i]));
+    if(p.n<=10||i%(p.n>40?4:2)===1||i===p.n){x.fillStyle=css('--muted');x.textAlign='center';x.textBaseline='top';x.fillText(i,bx+bw/2,T+ph+5);x.textAlign='right';x.textBaseline='middle'}}
+  const ratio=Math.pow(w[hi]/w[lo],gam());
+  $('wtStats').innerHTML=`<div><small>組平均</small><b>${(sum/p.n).toFixed(3)} g</b></div>
+   <div><small>最輕（綠）</small><b>${pad(lo)} · ${w[lo].toFixed(3)} g</b></div>
+   <div><small>最重（紅）</small><b>${pad(hi)} · ${w[hi].toFixed(3)} g</b></div>
+   <div><small>差距</small><b>${(w[hi]-w[lo]).toFixed(3)} g</b></div>
+   <div><small>最輕 vs 最重 被吸出機率比</small><b>${useW()?'+'+((ratio-1)*100).toFixed(1)+'%':'未套用'}</b></div>`;
 }
 let simT=0;
 function step(ch,dt,air){
@@ -298,7 +333,7 @@ function step(ch,dt,air){
     if(air){
       const ux=(b.x-cx)/R,uy=(b.y-cy)/R;
       // blower lift: strongest at the nozzle, fades toward the top so balls fall back and recirculate
-      const lift=g*(0.9+1.1*rnd())*(0.55+0.95*Math.max(0,uy+0.15))*(1-b.bias)*(1-0.55*Math.min(1,Math.abs(ux)*1.3));
+      const lift=g*(0.9+1.1*rnd())*(0.55+0.95*Math.max(0,uy+0.15))*(1-b.bias)*b.mf*(1-0.55*Math.min(1,Math.abs(ux)*1.3));
       b.vy-=lift*dt;
       // turbulent field (moving sine cells)
       const T=g*1.6;
@@ -311,7 +346,7 @@ function step(ch,dt,air){
     }
     if(sucking){ // vacuum pull toward the intake mouth
       const dx=mx-b.x,dy=my-b.y,d=Math.hypot(dx,dy);
-      if(d<S){const f=g*4.5*(1-d/S)**1.5*(1+b.bias);b.vx+=dx/d*f*dt;b.vy+=dy/d*f*dt;}
+      if(d<S){const f=g*4.5*(1-d/S)**1.5*(1+b.bias)*b.mf;b.vx+=dx/d*f*dt;b.vy+=dy/d*f*dt;}
     }
     b.vx*=0.996;b.vy*=0.996;
     const sp=Math.hypot(b.vx,b.vy),max=R*3.6; if(sp>max){b.vx*=max/sp;b.vy*=max/sp}
@@ -480,7 +515,8 @@ let lastSim=null;
 function runSim(){
   const p=activePoolObj(),N=+$('nsim').value,k=p.draw+(p.special?1:0);
   const w=new Array(p.n+1).fill(1);const bn=+$('biasnum').value,bp=+$('biaspct').value/100;
-  if(bn>=1&&bn<=p.n) w[bn]=Math.max(0.05,1+bp);
+  const pi0=+$('pool').value||0;for(let i=1;i<=p.n;i++)w[i]=wFactor(pi0,i);
+  if(bn>=1&&bn<=p.n) w[bn]*=Math.max(0.05,1+bp);
   const cnt=new Array(p.n+1).fill(0);
   for(let i=0;i<N;i++) for(const x of weightedDraw(p.n,k,w)) cnt[x]++;
   const E=N*k/p.n,q=k/p.n;let X=0;for(let i=1;i<=p.n;i++)X+=(cnt[i]-E)**2;
@@ -493,7 +529,8 @@ function runSim(){
    <div><small>最多 / 最少</small><b>${String(hi).padStart(2,'0')} · ${String(lo).padStart(2,'0')}</b></div>
    <div><small>卡方 χ² (df=${df})</small><b>${X.toFixed(1)}</b></div>
    <div><small>p 值（近似）</small><b>${pv<0.0001?'<0.0001':pv.toFixed(4)}</b></div>
-   <div><small>判讀 α=0.05</small><b><span class="pill ${pv<0.05?'bad':'ok'}">${pv<0.05?'偵測到偏差':'符合均勻分布'}</span></b></div>`;
+   <div><small>判讀 α=0.05</small><b><span class="pill ${pv<0.05?'bad':'ok'}">${pv<0.05?'偵測到偏差':'符合均勻分布'}</span></b></div>
+   <div><small>球重模型</small><b>${useW()?'γ='+gam():'關閉'}</b></div>`;
 }
 function drawFreq(){
   const c=$('freq'),x=c.getContext('2d'),r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
@@ -663,10 +700,13 @@ function refreshExtras(){
   const ps=$('realPool');const keep=ps.dataset.g===gameKey?ps.value:'0';ps.innerHTML='';
   GAMES[gameKey].pools.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${p.label}（1–${p.n}）`;ps.append(o)});
   ps.value=keep;ps.dataset.g=gameKey;$('realPoolWrap').hidden=GAMES[gameKey].pools.length<2;
-  renderReal();fillMy();pwIdle();
+  renderReal();fillMy();pwIdle();renderWt();
 }
+$('pwFromW').onclick=()=>{const pi=+$('realPool').value||0,w=WT[gameKey][pi].slice(1);$('pwBias').value=Math.max(1,Math.round((Math.pow(Math.max(...w)/Math.min(...w),gam()||1)-1)*100));pwIdle()};
 $('runIdeal').onclick=runIdeal;$('runMy').onclick=runMy;$('runPw').onclick=runPw;
-$('realPool').onchange=()=>{renderReal();pwIdle()};
+$('realPool').onchange=()=>{renderReal();pwIdle();renderWt()};
+$('reweigh').onclick=()=>{weighAll();renderWt();runSim()};
+['useW','gamma'].forEach(id=>$(id).onchange=()=>{renderWt();runSim()});
 
 /* ---------- UI wiring ---------- */
 function buildTabs(){
@@ -690,7 +730,7 @@ $('runsim').onclick=runSim;
 $('pool').onchange=()=>{lastSim=null;$('stats').innerHTML='';drawFreq()};
 window.addEventListener('resize',()=>{if(state==='idle')resetAll();drawFreq()});
 try{const g=localStorage.getItem('drawroom-game');if(g&&GAMES[g])gameKey=g}catch(e){}
-buildTabs();resetAll();renderBt();
+weighAll();buildTabs();resetAll();renderBt();
 requestAnimationFrame(loop);
 })();
 </script>
