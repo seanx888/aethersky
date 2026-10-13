@@ -1,0 +1,698 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>台彩開獎模擬室</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: broadcast control-room — machine stage on top, result tray, then a stats bench. */
+:root{
+  --bg:#eef1f4; --panel:#ffffff; --ink:#14202b; --muted:#5d6b78; --line:#d5dce3;
+  --accent:#d6311f; --accent-ink:#fff; --glass:rgba(120,160,200,.10); --glass-edge:#8aa4bc;
+  --stage:#dfe6ed; --good:#1f8a4c; --warn:#b7791f;
+  --f-display:"Archivo","Noto Sans TC",system-ui,sans-serif;
+  --f-body:"Noto Sans TC",system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f151c; --panel:#18212b; --ink:#e8eef4; --muted:#93a3b3; --line:#2a3644;
+  --accent:#ff5a44; --accent-ink:#1a0805; --glass:rgba(140,190,240,.07); --glass-edge:#5d7a96;
+  --stage:#121a23; --good:#4cc283; --warn:#e2a84a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f151c; --panel:#18212b; --ink:#e8eef4; --muted:#93a3b3; --line:#2a3644;
+  --accent:#ff5a44; --accent-ink:#1a0805; --glass:rgba(140,190,240,.07); --glass-edge:#5d7a96;
+  --stage:#121a23; --good:#4cc283; --warn:#e2a84a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;padding-inline:16px;padding-block:20px 40px}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(24px,4.5vw,34px);letter-spacing:-.01em;margin:0;line-height:1.1;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;margin:4px 0 0}
+.onair{display:inline-flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.onair i{width:9px;height:9px;border-radius:50%;background:var(--line)}
+.onair.live i{background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 25%,transparent)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{font:inherit;font-weight:700;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tab small{font-weight:500;opacity:.7;margin-left:6px;font-family:var(--f-mono);font-size:11px}
+.stage{background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative}
+#machine{display:block;width:100%;height:auto}
+.phase{position:absolute;left:14px;top:12px;font-family:var(--f-mono);font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 8px;color:var(--ink)}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font:inherit;font-weight:700;border-radius:10px;padding:10px 18px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:focus-visible,.tab:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.inline{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+select,input[type=number]{font:inherit;font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.panel h2{font-family:var(--f-display);font-size:17px;margin:0 0 10px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.panel h2 span{font-family:var(--f-body);font-size:12px;color:var(--muted);font-weight:500}
+.tray{display:grid;gap:12px}
+.row{display:flex;flex-direction:column;gap:6px}
+.row .lbl{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.balls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-height:46px}
+@media(max-width:480px){.ball{width:40px;height:40px;font-size:16px}}
+.sptag{font-size:12px;color:var(--accent);font-weight:700;margin-left:6px}
+.ball{--c:#888;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:18px;color:#16202a;
+  background:radial-gradient(circle at 34% 30%,#fff 0 18%,var(--c) 62%,color-mix(in srgb,var(--c) 70%,#000) 100%);
+  box-shadow:inset 0 -3px 6px rgba(0,0,0,.18),0 2px 4px rgba(0,0,0,.18);font-variant-numeric:tabular-nums}
+.ball.new{animation:pop .35s ease-out}
+.ball.sp{outline:3px solid var(--accent);outline-offset:2px}
+.ball.ghost{background:transparent;border:2px dashed var(--line);box-shadow:none;animation:none}
+@keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.ball{animation:none}}
+.hist{font-family:var(--f-mono);font-size:13px;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto}
+.hist div{display:flex;gap:10px;flex-wrap:wrap}
+.hist b{color:var(--muted);font-weight:500;min-width:4.5em}
+.hist .sp{color:var(--accent)}
+.grid2{display:grid;grid-template-columns:1fr;gap:18px}
+@media(min-width:760px){.grid2{grid-template-columns:1.6fr 1fr}}
+.grid2>*{min-width:0}
+#freq{width:100%;height:220px;display:block}
+.stats{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;font-size:13px}
+.stats div{display:flex;flex-direction:column}
+.stats b{font-family:var(--f-display);font-size:20px;font-variant-numeric:tabular-nums}
+.stats small{color:var(--muted)}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.pill.ok{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+.pill.bad{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+.note{color:var(--muted);font-size:12.5px;max-width:70ch;margin:8px 0 0}
+.steps{margin:0;padding-left:1.3em;font-size:13.5px;color:var(--ink);display:grid;gap:4px}
+.steps li.on{color:var(--accent);font-weight:700}
+.chart{width:100%;height:220px;display:block;margin-top:8px}
+.chart.sm{height:170px}
+.cols{display:grid;grid-template-columns:1fr;gap:14px;margin-top:10px}
+@media(min-width:760px){.cols{grid-template-columns:1fr 1.3fr}}
+.cols>*{min-width:0}
+.minihead{font-size:12px;color:var(--muted);letter-spacing:.04em;margin-bottom:4px}
+.tbl{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:right;white-space:nowrap}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl th{color:var(--muted);font-weight:500;font-size:12px}
+.tblwrap{overflow-x:auto;margin-top:10px}
+.mono{font-family:var(--f-mono);font-size:12.5px}
+.hit{color:var(--good);font-weight:700}
+.prog{height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--accent);width:0}
+input[type=text]{font:inherit;font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+
+/* ---- polish v2 ---- */
+body{background:radial-gradient(1200px 500px at 50% -120px,color-mix(in srgb,var(--accent) 9%,transparent),transparent 70%),var(--bg)}
+header{padding:18px 20px;border-radius:18px;background:linear-gradient(135deg,var(--panel),color-mix(in srgb,var(--panel) 85%,var(--accent)));border:1px solid var(--line);box-shadow:0 8px 30px -18px rgba(0,0,0,.35)}
+h1{background:linear-gradient(90deg,var(--ink),color-mix(in srgb,var(--ink) 55%,var(--accent)));-webkit-background-clip:text;background-clip:text;color:transparent}
+.onair{padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+.onair.live{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.onair.live i{animation:blink 1.2s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+.tab{transition:background .15s,transform .15s,box-shadow .15s}
+.tab:hover{transform:translateY(-1px);box-shadow:0 4px 12px -6px rgba(0,0,0,.3)}
+.stage{border-radius:20px;background:radial-gradient(ellipse at 50% 35%,color-mix(in srgb,var(--panel) 70%,var(--stage)),var(--stage) 70%);box-shadow:inset 0 0 0 1px var(--line),inset 0 -40px 80px -40px rgba(0,0,0,.25),0 14px 40px -24px rgba(0,0,0,.45)}
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:32px 32px;opacity:.18;mask-image:radial-gradient(ellipse at center,#000 30%,transparent 75%)}
+.phase{backdrop-filter:blur(6px);background:color-mix(in srgb,var(--panel) 80%,transparent);font-weight:600}
+.btn{transition:transform .12s,box-shadow .12s,filter .12s}
+.btn:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 6px 16px -8px rgba(0,0,0,.35)}
+.btn.primary{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 88%,#fff),var(--accent));box-shadow:0 6px 18px -8px var(--accent)}
+.panel{border-radius:18px;padding:18px 20px;box-shadow:0 1px 0 rgba(0,0,0,.02),0 10px 30px -22px rgba(0,0,0,.35);transition:box-shadow .2s}
+.panel:hover{box-shadow:0 14px 36px -22px rgba(0,0,0,.45)}
+.panel h2{padding-bottom:10px;border-bottom:1px dashed var(--line);margin-bottom:12px}
+.stats div{background:color-mix(in srgb,var(--bg) 60%,var(--panel));border:1px solid var(--line);border-radius:12px;padding:8px 12px;min-width:110px}
+.steps li{padding:4px 8px;border-radius:8px;transition:background .2s}
+.steps li.on{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.hist div{padding:4px 6px;border-radius:6px}.hist div:nth-child(odd){background:color-mix(in srgb,var(--bg) 70%,transparent)}
+.tbl tr:hover td{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.prog i{background:linear-gradient(90deg,var(--warn),var(--accent));transition:width .6s}
+.ball.new{animation:pop .45s cubic-bezier(.3,1.6,.5,1)}
+@media (prefers-reduced-motion:reduce){.onair.live i,.btn,.tab{animation:none;transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>台彩開獎模擬室</h1>
+      <p class="sub">Super Bingo 氣流式開獎機 · 物理模擬 · 大樂透 / 威力彩 / 今彩539 · 統計資料快照 2026-10-13</p>
+    </div>
+    <div class="onair" id="onair"><i></i><span>Standby</span></div>
+  </header>
+
+  <div class="tabs" role="tablist" id="tabs"></div>
+
+  <div class="stage">
+    <canvas id="machine" width="960" height="460" aria-label="開獎機動畫"></canvas>
+    <div class="phase" id="phase">待機</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="go">開始開獎</button>
+    <button class="btn" id="reset">重置</button>
+    <label class="inline" for="speed">速度
+      <select id="speed"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select>
+    </label>
+    <label class="inline" for="mixsec">攪拌秒數
+      <input type="number" id="mixsec" min="2" max="30" value="10" style="width:4.5em">
+    </label>
+  </div>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>本期開獎結果 <span id="drawno">第 1 期（模擬）</span></h2>
+      <div class="tray" id="tray"></div>
+    </section>
+    <section class="panel">
+      <h2>開獎流程</h2>
+      <ol class="steps" id="steps">
+        <li>驗球：見證人確認球組完整</li>
+        <li>投球：球依序落入攪拌球艙</li>
+        <li>攪拌：鼓風機吹氣混合球體</li>
+        <li>開獎：取球口負壓吸球，逐顆吸入管道</li>
+        <li>公告：依開出順序與大小順序</li>
+      </ol>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>模擬紀錄 <span>本次瀏覽中開出的每一期</span></h2>
+    <div class="hist" id="hist"><div style="color:var(--muted)">尚無紀錄，按「開始開獎」。</div></div>
+  </section>
+
+  <section class="panel">
+    <h2>大量模擬 · 頻率與卡方檢定 <span>理想機器 vs 加入偏差球</span></h2>
+    <div class="controls">
+      <label class="inline" for="nsim">期數
+        <select id="nsim"><option>500</option><option selected>2000</option><option>10000</option><option>50000</option></select>
+      </label>
+      <label class="inline" for="pool" id="poolwrap">號碼區 <select id="pool"></select></label>
+      <label class="inline" for="biasnum">偏差球號 <input type="number" id="biasnum" min="0" value="0" style="width:4.5em"></label>
+      <label class="inline" for="biaspct">偏差 % <input type="number" id="biaspct" min="-50" max="50" value="0" style="width:4.5em"></label>
+      <button class="btn primary" id="runsim">執行模擬</button>
+    </div>
+    <canvas id="freq" width="900" height="220" aria-label="號碼出現頻率"></canvas>
+    <div class="stats" id="stats"></div>
+    <p class="note">偏差球號填 0 = 理想機器。填入號碼與 % 可模擬「某顆球被吸出的機率偏高或偏低」（例如球重、磨損），用來觀察卡方檢定需要多少期才抓得到偏差。實體開獎每期獨立，歷史頻率不能預測下一期。</p>
+  </section>
+
+  <section class="panel" id="realPanel">
+    <h2>① 真實開獎 vs 理想機台 <span id="realMeta"></span></h2>
+    <div class="controls">
+      <label class="inline" for="realPool" id="realPoolWrap">號碼區 <select id="realPool"></select></label>
+      <button class="btn primary" id="runIdeal">跑 1,000 台理想機台</button>
+    </div>
+    <canvas id="realFreq" class="chart" aria-label="真實開獎號碼頻率"></canvas>
+    <div class="stats" id="realStats"></div>
+    <canvas id="realChi" class="chart sm" aria-label="理想機台卡方分布"></canvas>
+    <p class="note" id="realNote">真實資料快照來自 Drive（歷史封存＋月檔＋增補＋勘誤合併）。按按鈕後，會用相同期數模擬 1,000 台完美均勻的開獎機，看真實結果的 χ² 落在哪裡。</p>
+  </section>
+
+  <section class="panel" id="myPanel">
+    <h2>② 我的號碼 · 連買模擬 <span>任何一組號碼的機率都相同</span></h2>
+    <div class="controls">
+      <label class="inline" for="myNums">號碼 <input type="text" id="myNums" inputmode="numeric" style="width:13em"></label>
+      <label class="inline" for="myZ2" id="myZ2Wrap">第二區 <input type="number" id="myZ2" min="1" max="8" style="width:4em"></label>
+      <label class="inline" for="myN">連買期數 <input type="number" id="myN" min="1" max="200" style="width:4.5em"></label>
+      <label class="inline" for="myThr">命中 ≥ <input type="number" id="myThr" min="1" max="6" style="width:3.5em"> 個</label>
+      <button class="btn primary" id="runMy">模擬 10,000 次</button>
+    </div>
+    <div class="cols">
+      <div><div class="minihead">單期命中機率（超幾何分布）</div><table class="tbl" id="myHyper"></table></div>
+      <div><div class="minihead">連買期間「達標期數」分布</div><canvas id="myHist" class="chart sm" aria-label="達標期數分布"></canvas></div>
+    </div>
+    <div class="stats" id="myStats"></div>
+    <p class="note">同時模擬「固定這組號碼」與「每期換一組隨機號碼」。兩者結果應該幾乎一樣，因為每期開獎彼此獨立，選哪組號碼都不改變機率。</p>
+  </section>
+
+  <section class="panel" id="pwPanel">
+    <h2>③ 偏差偵測力（Power） <span>偏差多大、要多少期才測得出來？</span></h2>
+    <div class="controls">
+      <label class="inline" for="pwBias">某顆球偏差 % <input type="number" id="pwBias" min="1" max="100" value="10" style="width:4.5em"></label>
+      <label class="inline" for="pwTrials">每點重複 <select id="pwTrials"><option>50</option><option selected>100</option><option>200</option></select></label>
+      <button class="btn primary" id="runPw">計算偵測率</button>
+      <span class="inline" id="pwBusy"></span>
+    </div>
+    <canvas id="pwChart" class="chart" aria-label="偵測率曲線"></canvas>
+    <div class="stats" id="pwStats"></div>
+    <p class="note">模擬一顆球被吸出的機率高出指定 %（例如球重或磨損），每個期數重複多次，統計卡方檢定（α=0.05）抓到偏差的比例。紅線是目前實際累積的期數。偵測率低，代表現有資料量根本不足以判斷「哪個號碼比較熱」。</p>
+  </section>
+
+  <section class="panel" id="btPanel">
+    <h2>④ 回測：系統推薦 vs 隨機 <span id="btMeta"></span></h2>
+    <div class="prog"><i id="btBar"></i></div>
+    <div class="tblwrap"><table class="tbl" id="btTable"></table></div>
+    <div class="stats" id="btStats"></div>
+    <p class="note">每一筆已開獎的推薦，都跟 2,000 組隨機號碼比較命中數。百分位 50% 代表和隨機一樣；要累積 ≥20 筆、而且整體穩定高於 50%，才算有參考意義。目前樣本不足，結論僅供參考。</p>
+  </section>
+
+</div>
+
+<script>
+(()=>{
+const GAMES={
+  lotto:{name:'大樂透',tag:'49選6+特',pools:[{n:49,draw:6,special:true,label:'獎號'}]},
+  power:{name:'威力彩',tag:'38選6 · 8選1',pools:[{n:38,draw:6,label:'第一區'},{n:8,draw:1,label:'第二區'}]},
+  d539:{name:'今彩539',tag:'39選5',pools:[{n:39,draw:5,label:'獎號'}]}
+};
+const COLORS=['#f2c94c','#6fb3f2','#f28b82','#9ad79a','#c9a3f2'];
+const colorOf=(num,n)=> n<=8 ? '#f2994a' : COLORS[Math.floor((num-1)/10)%5];
+
+const $=id=>document.getElementById(id);
+const cv=$('machine'),ctx=cv.getContext('2d');
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const rnd=()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]/4294967296};
+
+let gameKey='lotto',chambers=[],state='idle',results=[],drawCount=0,history=[];
+let W=960,H=460,running=false,last=0,activeIdx=0,phaseT=0,gateOpen=false,gateCooldown=0,flying=[];
+
+/* ---------- Chamber physics ---------- */
+function makeChamber(pool,cx,cy,R,br){
+  return {pool,cx,cy,R,br,balls:[],out:[],need:pool.draw+(pool.special?1:0),loadQ:[],stuck:0};
+}
+function layout(){
+  const r=cv.getBoundingClientRect();W=Math.max(320,r.width);H=Math.round(Math.min(480,Math.max(300,W*0.52)));
+  const dpr=window.devicePixelRatio||1;cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
+  const g=GAMES[gameKey];
+  const R=Math.min(H*0.36,W*(g.pools.length>1?0.27:0.34));
+  const br=R*Math.sqrt(0.30/49);
+  chambers=g.pools.map((p,i)=>{
+    if(i===0) return makeChamber(p,g.pools.length>1?W*0.36:W*0.5,H*0.56,R,br);
+    const R2=br/0.16; return makeChamber(p,W*0.80,H*0.62,R2,br);
+  });
+}
+function loadBalls(ch){
+  ch.balls=[];ch.out=[];ch.loadQ=[];ch.loadT=0;
+  for(let i=1;i<=ch.pool.n;i++) ch.loadQ.push(i);
+}
+function spawn(ch){
+  const num=ch.loadQ.shift();
+  ch.balls.push({num,x:ch.cx+(rnd()-.5)*ch.R*0.3,y:ch.cy-ch.R+ch.br*2,vx:(rnd()-.5)*ch.R*0.5,vy:ch.R*0.6,bias:biasFor(ch.pool,num)});
+}
+function biasFor(pool,num){
+  const bn=+$('biasnum').value,bp=+$('biaspct').value/100;
+  return (bn===num && pool===activePoolObj()) ? bp : 0;
+}
+let simT=0;
+function step(ch,dt,air){
+  const {cx,cy,R,br}=ch,g=R*2.6;
+  if(!ch.ph) ch.ph=[rnd()*6.3,rnd()*6.3,rnd()*6.3,rnd()<.5?1:-1];
+  const [p1,p2,p3]=ch.ph; const spin=Math.sin(simT*0.37+p3)>0?1:-1;
+  const sucking=gateOpen&&ch===chambers[activeIdx]&&gateCooldown<=0;
+  const mx=cx,my=cy-R+br*1.1,S=R*0.6;
+  for(const b of ch.balls){
+    b.vy+=g*dt;
+    if(air){
+      const ux=(b.x-cx)/R,uy=(b.y-cy)/R;
+      // blower lift: strongest at the nozzle, fades toward the top so balls fall back and recirculate
+      const lift=g*(0.9+1.1*rnd())*(0.55+0.95*Math.max(0,uy+0.15))*(1-b.bias)*(1-0.55*Math.min(1,Math.abs(ux)*1.3));
+      b.vy-=lift*dt;
+      // turbulent field (moving sine cells)
+      const T=g*1.6;
+      b.vx+=T*Math.sin(uy*5.1+simT*3.3+p1)*dt;
+      b.vy+=T*0.8*Math.cos(ux*4.7-simT*2.9+p2)*dt;
+      // swirl around the center, flips direction now and then
+      b.vx+=-uy*g*0.9*spin*dt; b.vy+=ux*g*0.9*spin*dt;
+      // random gust kicks
+      if(rnd()<dt*2.5){const a=rnd()*6.283,m=R*(0.8+rnd()*1.4);b.vx+=Math.cos(a)*m;b.vy+=Math.sin(a)*m-R*0.5;}
+    }
+    if(sucking){ // vacuum pull toward the intake mouth
+      const dx=mx-b.x,dy=my-b.y,d=Math.hypot(dx,dy);
+      if(d<S){const f=g*4.5*(1-d/S)**1.5*(1+b.bias);b.vx+=dx/d*f*dt;b.vy+=dy/d*f*dt;}
+    }
+    b.vx*=0.996;b.vy*=0.996;
+    const sp=Math.hypot(b.vx,b.vy),max=R*3.6; if(sp>max){b.vx*=max/sp;b.vy*=max/sp}
+    b.x+=b.vx*dt;b.y+=b.vy*dt;
+  }
+  // ball-ball
+  const bs=ch.balls,d2=4*br*br;
+  for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++){
+    const a=bs[i],b=bs[j],dx=b.x-a.x,dy=b.y-a.y,dd=dx*dx+dy*dy;
+    if(dd<d2&&dd>1e-6){const d=Math.sqrt(dd),nx=dx/d,ny=dy/d,ov=(2*br-d)/2;
+      a.x-=nx*ov;a.y-=ny*ov;b.x+=nx*ov;b.y+=ny*ov;
+      const rv=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny; if(rv<0){const im=-rv*0.95;a.vx-=im*nx;a.vy-=im*ny;b.vx+=im*nx;b.vy+=im*ny}}
+  }
+  // walls + suction capture
+  for(let k=ch.balls.length-1;k>=0;k--){
+    const b=ch.balls[k];
+    if(sucking && Math.hypot(b.x-mx,b.y-my)<br*1.25){ch.balls.splice(k,1);capture(ch,b);continue;}
+    const dx=b.x-cx,dy=b.y-cy,d=Math.hypot(dx,dy);
+    if(d>R-br){const nx=dx/d,ny=dy/d;b.x=cx+nx*(R-br);b.y=cy+ny*(R-br);
+      const vn=b.vx*nx+b.vy*ny; if(vn>0){b.vx-=1.85*vn*nx;b.vy-=1.85*vn*ny}}
+  }
+}
+function capture(ch,b){
+  gateCooldown=1.6; ch.stuck=0;
+  flying.push({ch,num:b.num,x:b.x,y:b.y,t:0});
+}
+function settleFlying(f){
+  const ch=f.ch; ch.out.push(f.num);
+  const pi=chambers.indexOf(ch);
+  results[pi].push(f.num);
+  renderTray();
+  if(ch.out.length>=ch.need){
+    gateOpen=false;
+    if(activeIdx<chambers.length-1){activeIdx++;setPhase('mix2');}
+    else finish();
+  }
+}
+
+/* ---------- Phases ---------- */
+const PH={idle:'待機',check:'① 驗球',load:'② 投球',mix:'③ 攪拌中',draw:'④ 吸球開獎',mix2:'③ 第二區攪拌',draw2:'④ 第二區開獎',done:'⑤ 開獎完成'};
+function setPhase(p){
+  state=p;phaseT=0;$('phase').textContent=PH[p]||p;
+  const idx={idle:-1,check:0,load:1,mix:2,mix2:2,draw:3,draw2:3,done:4}[p];
+  [...$('steps').children].forEach((li,i)=>li.classList.toggle('on',i===idx));
+  const live=!['idle','done'].includes(p);
+  $('onair').classList.toggle('live',live);$('onair').querySelector('span').textContent=live?'On air':'Standby';
+}
+function start(){
+  if(running&&state!=='done'&&state!=='idle')return;
+  layout();results=chambers.map(()=>[]);flying=[];activeIdx=0;gateOpen=false;
+  chambers.forEach(loadBalls);renderTray();
+  $('drawno').textContent=`第 ${drawCount+1} 期（模擬）`;
+  $('go').disabled=true;setPhase('check');
+}
+function finish(){
+  setPhase('done');drawCount++;$('go').disabled=false;$('go').textContent='再開一期';
+  const g=GAMES[gameKey];history.unshift({game:g.name,no:drawCount,res:results.map(r=>r.slice())});
+  renderHist();
+}
+function update(dt){
+  phaseT+=dt;simT+=dt;const mix=Math.max(2,+$('mixsec').value||10);
+  if(state==='check'&&phaseT>1.2) setPhase('load');
+  if(state==='load'){
+    chambers.forEach(ch=>{ ch.loadT=(ch.loadT||0)+dt; while(ch.loadQ.length && ch.loadT>=0.12){ ch.loadT-=0.12; spawn(ch); } });
+    if(chambers.every(ch=>!ch.loadQ.length) && phaseT>1) setPhase('mix');
+  }
+  if(state==='mix'&&phaseT>mix){setPhase('draw');gateOpen=true;gateCooldown=0.3;}
+  if(state==='mix2'&&phaseT>Math.min(mix,4)){setPhase('draw2');gateOpen=true;gateCooldown=0.3;}
+  if(gateCooldown>0) gateCooldown-=dt;
+  // fallback: keep draw moving if no ball reaches the tube
+  if(gateOpen&&gateCooldown<=0){const ch=chambers[activeIdx];ch.stuck+=dt;
+    if(ch.stuck>5&&ch.balls.length){const b=ch.balls[Math.floor(rnd()*ch.balls.length)];b.vy-=ch.R*2.5;b.vx=(ch.cx-b.x)*1.5;ch.stuck=4;}}
+  const air=['mix','draw','mix2','draw2'].includes(state);
+  chambers.forEach((ch,i)=>{
+    const on=air && (gameKey!=='power' || i===activeIdx || state==='mix');
+    for(let s=0;s<4;s++) step(ch,dt/4,on);
+  });
+  for(let i=flying.length-1;i>=0;i--){const f=flying[i];f.t+=dt;
+    const top=f.ch.cy-f.ch.R-f.ch.br*5; f.x+=(f.ch.cx-f.x)*Math.min(1,dt*18); f.y=Math.max(top,f.y-f.ch.R*2.2*dt);
+    if(f.y<=top){f.hold=(f.hold||0)+dt; if(f.hold>0.35){flying.splice(i,1);settleFlying(f);}}}
+}
+
+/* ---------- Draw ---------- */
+function ballPaint(x,y,r,num,n,alpha=1){
+  const c=colorOf(num,n);ctx.globalAlpha=alpha;
+  const gr=ctx.createRadialGradient(x-r*.35,y-r*.4,r*.1,x,y,r);gr.addColorStop(0,'#fff');gr.addColorStop(.35,c);gr.addColorStop(1,shade(c));
+  ctx.fillStyle=gr;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();
+  if(r>7){ctx.fillStyle='#16202a';ctx.font=`800 ${Math.round(r*1.0)}px Archivo, sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(num,x,y+r*.05);}
+  ctx.globalAlpha=1;
+}
+function shade(hex){const n=parseInt(hex.slice(1),16);const f=v=>Math.round(v*0.62);return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`}
+function render(){
+  ctx.clearRect(0,0,W,H);
+  const edge=css('--glass-edge'),glass=css('--glass'),ink=css('--ink'),muted=css('--muted'),acc=css('--accent');
+  chambers.forEach((ch,i)=>{
+    const {cx,cy,R,br}=ch,tube=br*1.35;
+    // base / blower
+    ctx.fillStyle=css('--line');ctx.fillRect(cx-R*0.5,cy+R*0.92,R,R*0.14);ctx.fillRect(cx-R*0.18,cy+R*0.98,R*0.36,H);
+    // sphere
+    ctx.fillStyle=glass;ctx.strokeStyle=edge;ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R,0,7);ctx.fill();ctx.stroke();
+    // tube
+    ctx.fillStyle=glass;ctx.fillRect(cx-tube,cy-R-br*6,tube*2,br*6+2);
+    ctx.strokeStyle=(gateOpen&&i===activeIdx)?acc:edge;ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(cx-tube,cy-R+2);ctx.lineTo(cx-tube,cy-R-br*6);ctx.moveTo(cx+tube,cy-R+2);ctx.lineTo(cx+tube,cy-R-br*6);ctx.stroke();
+    // gate
+    if(!(gateOpen&&i===activeIdx)){ctx.strokeStyle=edge;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(cx-tube,cy-R+3);ctx.lineTo(cx+tube,cy-R+3);ctx.stroke();}
+    // air hint
+    const airOn=['mix','draw','mix2','draw2','load'].includes(state)&&(gameKey!=='power'||i===activeIdx||state==='mix'||state==='load');
+    if(airOn){ctx.strokeStyle=acc;ctx.globalAlpha=.35;ctx.lineWidth=1.5;for(let k=-2;k<=2;k++){const x=cx+k*R*0.12,o=(performance.now()/90+k*7)%18;ctx.beginPath();ctx.moveTo(x,cy+R*0.9-o);ctx.lineTo(x,cy+R*0.9-o-10);ctx.stroke();}ctx.globalAlpha=1;}
+    if(gateOpen&&i===activeIdx&&gateCooldown<=0){ctx.strokeStyle=acc;ctx.lineWidth=1.5;const my=cy-R+br*1.1,ph=(performance.now()/250)%1;
+      for(let k=0;k<3;k++){const rr=br*(1.4+((k/3+ph)%1)*5);ctx.globalAlpha=0.5*(1-((k/3+ph)%1));ctx.beginPath();ctx.arc(cx,my,rr,0.15*Math.PI,0.85*Math.PI);ctx.stroke();}ctx.globalAlpha=1;
+      ctx.fillStyle=acc;ctx.font='700 11px "Noto Sans TC",sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('吸球中',cx+tube+6,cy-R-br*3);}
+    // balls
+    for(const b of ch.balls) ballPaint(b.x,b.y,br,b.num,ch.pool.n);
+    // label
+    ctx.fillStyle=muted;ctx.font='500 12px "Noto Sans TC",sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText(`${GAMES[gameKey].name} ${ch.pool.label} · ${ch.balls.length + ch.loadQ.length}/${ch.pool.n} 球`,cx,Math.min(H-16,cy+R*1.1));
+  });
+  for(const f of flying) ballPaint(f.x,f.y,f.ch.br*1.3,f.num,f.ch.pool.n);
+}
+function loop(t){
+  const sp=+$('speed').value||1;const dt=Math.min(0.033,(t-last)/1000||0)*sp;last=t;
+  if(!document.hidden){ if(state!=='idle'&&state!=='done') update(dt); else if(state==='done') {chambers.forEach(ch=>{for(let s=0;s<4;s++)step(ch,dt/4,false)})} render(); }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- Tray / history ---------- */
+function ballEl(num,n,sp){const d=document.createElement('div');d.className='ball'+(sp?' sp':'');d.style.setProperty('--c',colorOf(num,n));d.textContent=String(num).padStart(2,'0');return d}
+function ghost(){const d=document.createElement('div');d.className='ball ghost';return d}
+function renderTray(){
+  const tray=$('tray');tray.innerHTML='';const g=GAMES[gameKey];
+  g.pools.forEach((p,i)=>{
+    const got=(results[i]||[]);
+    const mk=(lbl,arr,sorted)=>{const r=document.createElement('div');r.className='row';const l=document.createElement('div');l.className='lbl';l.textContent=lbl;
+      const bx=document.createElement('div');bx.className='balls';r.append(l,bx);
+      const main=arr.slice(0,p.draw);const list=sorted?[...main].sort((a,b)=>a-b):main;const newest=arr[arr.length-1];
+      for(let k=0;k<p.draw;k++){if(list[k]!=null){const e=ballEl(list[k],p.n,false);if(!sorted&&list[k]===newest&&k===arr.length-1)e.classList.add('new');bx.append(e)}else bx.append(ghost())}
+      if(p.special){const s=arr[p.draw];const sl=document.createElement('span');sl.className='sptag';sl.textContent='特別號';bx.append(sl);
+        if(s!=null){const e=ballEl(s,p.n,true);if(!sorted&&arr.length===p.draw+1)e.classList.add('new');bx.append(e)}else bx.append(ghost())}
+      tray.append(r);};
+    const pre=g.pools.length>1?p.label+' ':'';
+    mk(pre+'開出順序',got,false);
+    if(p.draw>1) mk(pre+'大小順序',got,got.length>=p.draw);
+  });
+}
+function renderHist(){
+  const h=$('hist');h.innerHTML='';
+  history.slice(0,60).forEach(e=>{const d=document.createElement('div');
+    const g=Object.values(GAMES).find(x=>x.name===e.game);
+    const parts=e.res.map((r,i)=>{const p=g.pools[i];const m=r.slice(0,p.draw).sort((a,b)=>a-b).map(x=>String(x).padStart(2,'0')).join(' ');
+      return p.special?`${m} <span class="sp">特 ${String(r[p.draw]).padStart(2,'0')}</span>`:(g.pools.length>1?`${p.label} ${m}`:m)});
+    d.innerHTML=`<b>#${e.no} ${e.game}</b> <span>${parts.join(' ｜ ')}</span>`;h.append(d)});
+}
+
+/* ---------- Bulk simulation + chi-square ---------- */
+function activePoolObj(){return GAMES[gameKey].pools[+$('pool').value||0]}
+function weightedDraw(n,k,w){ // without replacement
+  const pool=[];for(let i=1;i<=n;i++)pool.push(i);const out=[];
+  for(let t=0;t<k;t++){let tot=0;for(const x of pool)tot+=w[x];let r=rnd()*tot,j=0;for(;j<pool.length;j++){r-=w[pool[j]];if(r<=0)break}
+    j=Math.min(j,pool.length-1);out.push(pool[j]);pool.splice(j,1);}
+  return out;
+}
+function erf(x){const s=Math.sign(x);x=Math.abs(x);const t=1/(1+0.3275911*x);const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);return s*y}
+function chiP(x,df){const z=(Math.cbrt(x/df)-(1-2/(9*df)))/Math.sqrt(2/(9*df));return 0.5*(1-erf(z/Math.SQRT2))}
+let lastSim=null;
+function runSim(){
+  const p=activePoolObj(),N=+$('nsim').value,k=p.draw+(p.special?1:0);
+  const w=new Array(p.n+1).fill(1);const bn=+$('biasnum').value,bp=+$('biaspct').value/100;
+  if(bn>=1&&bn<=p.n) w[bn]=Math.max(0.05,1+bp);
+  const cnt=new Array(p.n+1).fill(0);
+  for(let i=0;i<N;i++) for(const x of weightedDraw(p.n,k,w)) cnt[x]++;
+  const E=N*k/p.n,q=k/p.n;let X=0;for(let i=1;i<=p.n;i++)X+=(cnt[i]-E)**2;
+  X=X/(E*(1-q))*((p.n-1)/p.n);const df=p.n-1,pv=chiP(X,df);
+  lastSim={p,cnt,E,N,k,bn:(bn>=1&&bn<=p.n&&bp)?bn:0};drawFreq();
+  let hi=1,lo=1;for(let i=1;i<=p.n;i++){if(cnt[i]>cnt[hi])hi=i;if(cnt[i]<cnt[lo])lo=i}
+  $('stats').innerHTML=`
+   <div><small>期數</small><b>${N.toLocaleString()}</b></div>
+   <div><small>每號期望次數</small><b>${E.toFixed(1)}</b></div>
+   <div><small>最多 / 最少</small><b>${String(hi).padStart(2,'0')} · ${String(lo).padStart(2,'0')}</b></div>
+   <div><small>卡方 χ² (df=${df})</small><b>${X.toFixed(1)}</b></div>
+   <div><small>p 值（近似）</small><b>${pv<0.0001?'<0.0001':pv.toFixed(4)}</b></div>
+   <div><small>判讀 α=0.05</small><b><span class="pill ${pv<0.05?'bad':'ok'}">${pv<0.05?'偵測到偏差':'符合均勻分布'}</span></b></div>`;
+}
+function drawFreq(){
+  const c=$('freq'),x=c.getContext('2d'),r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  const w=Math.max(280,r.width),h=220;c.width=w*dpr;c.height=h*dpr;x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);
+  if(!lastSim){x.fillStyle=css('--muted');x.font='13px "Noto Sans TC",sans-serif';x.fillText('按「執行模擬」產生頻率分布',12,24);return}
+  const {p,cnt,E,bn}=lastSim,L=34,B=24,T=10,pw=w-L-8,ph=h-B-T;
+  let mx=E*1.25;for(let i=1;i<=p.n;i++)mx=Math.max(mx,cnt[i]*1.05);const mn=0;
+  const Y=v=>T+ph-(v-mn)/(mx-mn)*ph,bw=pw/p.n;
+  x.strokeStyle=css('--line');x.fillStyle=css('--muted');x.font='11px "JetBrains Mono",monospace';x.textAlign='right';x.textBaseline='middle';
+  for(let t=0;t<=4;t++){const v=mx*t/4,yy=Y(v);x.globalAlpha=.6;x.beginPath();x.moveTo(L,yy);x.lineTo(w-8,yy);x.stroke();x.globalAlpha=1;x.fillText(Math.round(v),L-4,yy)}
+  for(let i=1;i<=p.n;i++){const bx=L+(i-1)*bw;x.fillStyle=i===bn?css('--accent'):colorOf(i,p.n);x.globalAlpha=i===bn?1:.85;
+    x.fillRect(bx+bw*.12,Y(cnt[i]),bw*.76,Y(0)-Y(cnt[i]));x.globalAlpha=1;
+    if(p.n<=10||i%(p.n>40?4:2)===1||i===p.n){x.fillStyle=css('--muted');x.textAlign='center';x.textBaseline='top';x.fillText(i,bx+bw/2,T+ph+5)}}
+  x.strokeStyle=css('--ink');x.setLineDash([5,4]);x.lineWidth=1.2;x.beginPath();x.moveTo(L,Y(E));x.lineTo(w-8,Y(E));x.stroke();x.setLineDash([]);
+  x.fillStyle=css('--ink');x.textAlign='left';x.textBaseline='bottom';x.fillText('期望值 '+E.toFixed(0),L+4,Y(E)-3);
+}
+
+
+/* ---------- Statistics integration (snapshot from Drive, SKILL v3.2) ---------- */
+const SNAP={"lotto":{"T":331,"from":"2024-01-02","to":"2026-10-09","f":[[31,42,37,39,41,44,47,39,30,37,44,44,46,42,46,39,39,42,44,48,36,41,35,39,57,51,38,29,47,35,32,37,48,37,50,41,37,41,50,46,39,30,33,24,37,44,44,41,46]]},"power":{"T":291,"from":"2024-01-01","to":"2026-10-12","f":[[38,47,46,43,37,46,47,49,53,40,56,38,42,59,48,44,58,43,42,45,47,46,43,45,52,42,42,37,57,38,54,37,46,43,51,42,49,54],[30,43,36,40,42,31,35,34]]},"d539":{"T":877,"from":"2024-01-01","to":"2026-10-12","f":[[105,113,118,110,112,120,128,126,105,104,130,137,106,116,106,103,99,106,109,106,115,105,113,118,107,108,127,111,115,101,119,104,93,114,122,121,114,120,99]]}};
+const PICKS={lotto:{nums:[3,15,24,35,42,44],N:1,thr:3,draw:'09-29'},power:{nums:[5,8,15,26,31,36],z2:5,N:1,thr:3,draw:'09-28'},d539:{nums:[8,14,21,36,37],N:24,thr:2,draw:'09-26 起 24 期'}};
+const TRACK=[
+ {d:'09-15',g:'lotto',pick:[5,11,25,26,29,47],act:[2,3,18,21,22,39]},
+ {d:'09-15',g:'d539',pick:[5,11,16,17,22],act:[4,12,23,26,31]},
+ {d:'09-24',g:'power',pick:[5,15,17,23,24,33],act:[3,8,25,27,30,31]},
+ {d:'09-24',g:'d539',pick:[8,9,12,26,37],act:[5,8,18,19,30]},
+ {d:'09-25',g:'lotto',pick:[3,12,18,25,35,49],act:[5,13,24,25,28,33]},
+ {d:'09-29',g:'lotto',pick:[3,15,24,35,42,44],act:[1,2,4,13,30,38]},
+ {d:'09-28',g:'power',pick:[5,8,15,26,31,36],act:[1,2,4,17,29,34]},
+ {d:'09-26',g:'d539',pick:[8,14,21,36,37],act:[17,18,30,34,39]},
+ {d:'09-28',g:'d539',pick:[8,14,21,36,37],act:[13,19,21,27,32]},
+ {d:'09-29',g:'d539',pick:[8,14,21,36,37],act:[6,13,17,26,28]},
+ {d:'09-30',g:'d539',pick:[8,14,21,36,37],act:[2,7,9,14,33]},
+ {d:'10-01',g:'d539',pick:[8,14,21,36,37],act:[1,3,16,28,38]},
+ {d:'10-02',g:'d539',pick:[8,14,21,36,37],act:[13,24,30,34,38]},
+ {d:'10-03',g:'d539',pick:[8,14,21,36,37],act:[5,28,29,33,38]},
+ {d:'10-05',g:'d539',pick:[8,14,21,36,37],act:[2,5,8,16,31]},
+ {d:'10-06',g:'d539',pick:[8,14,21,36,37],act:[14,25,26,29,33]},
+ {d:'10-07',g:'d539',pick:[8,14,21,36,37],act:[5,11,14,18,19]},
+ {d:'10-08',g:'d539',pick:[8,14,21,36,37],act:[3,7,15,17,30]},
+ {d:'10-09',g:'d539',pick:[8,14,21,36,37],act:[20,23,25,27,31]},
+ {d:'10-10',g:'d539',pick:[8,14,21,36,37],act:[14,21,23,32,34]},
+ {d:'10-12',g:'d539',pick:[8,14,21,36,37],act:[6,16,24,36,39]}];
+const TRACK_PENDING=11;
+/* fast PRNG for bulk work, seeded from crypto */
+let _s=(()=>{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]||1})();
+const fr=()=>{_s|=0;_s=_s+0x6D2B79F5|0;let t=Math.imul(_s^_s>>>15,1|_s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const _buf=new Int16Array(64);
+function sampleK(n,k,out){for(let i=0;i<n;i++)_buf[i]=i+1;for(let i=0;i<k;i++){const j=i+Math.floor(fr()*(n-i));const t=_buf[i];_buf[i]=_buf[j];_buf[j]=t;out[i]=_buf[i]}return out}
+function chiOf(cnt,N,k,n){const E=N*k/n,q=k/n;let X=0;for(let i=1;i<=n;i++)X+=(cnt[i]-E)**2;X=X/(E*(1-q))*((n-1)/n);return {X,E,df:n-1,p:chiP(X,n-1)}}
+const pad=v=>String(v).padStart(2,'0');
+function C(n,k){if(k<0||k>n)return 0;let r=1;for(let i=1;i<=k;i++)r=r*(n-k+i)/i;return r}
+function setupCanvas(c,h){const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;const w=Math.max(260,r.width);c.width=w*dpr;c.height=h*dpr;const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);return {x,w,h}}
+function emptyMsg(c,h,msg){const {x}=setupCanvas(c,h);x.fillStyle=css('--muted');x.font='13px "Noto Sans TC",sans-serif';x.textBaseline='top';x.fillText(msg,10,12)}
+function bars(c,h,vals,lo,hi,{ref=null,refLabel='',mark=null,color=null,yfmt=v=>Math.round(v),xlab=i=>i,xEvery=1}={}){
+  const {x,w}=setupCanvas(c,h),L=40,B=22,T=12,pw=w-L-8,ph=h-B-T;let mx=ref?ref*1.2:0;for(let i=lo;i<=hi;i++)mx=Math.max(mx,(vals[i]||0)*1.08);mx=mx||1;
+  const Y=v=>T+ph-v/mx*ph,bw=pw/(hi-lo+1);
+  x.font='11px "JetBrains Mono",monospace';x.strokeStyle=css('--line');x.fillStyle=css('--muted');x.textAlign='right';x.textBaseline='middle';
+  for(let t=0;t<=4;t++){const v=mx*t/4,yy=Y(v);x.globalAlpha=.6;x.beginPath();x.moveTo(L,yy);x.lineTo(w-8,yy);x.stroke();x.globalAlpha=1;x.fillText(yfmt(v),L-4,yy)}
+  for(let i=lo;i<=hi;i++){const bx=L+(i-lo)*bw,v=vals[i]||0;x.fillStyle=(mark!=null&&i===mark)?css('--accent'):(color?color(i):css('--glass-edge'));
+    x.fillRect(bx+bw*.12,Y(v),Math.max(1,bw*.76),Y(0)-Y(v));
+    if((i-lo)%xEvery===0||i===hi){x.fillStyle=css('--muted');x.textAlign='center';x.textBaseline='top';x.fillText(xlab(i),bx+bw/2,T+ph+5)}}
+  if(ref!=null){x.strokeStyle=css('--ink');x.setLineDash([5,4]);x.lineWidth=1.2;x.beginPath();x.moveTo(L,Y(ref));x.lineTo(w-8,Y(ref));x.stroke();x.setLineDash([]);
+    x.fillStyle=css('--ink');x.textAlign='left';x.textBaseline='bottom';x.fillText(refLabel,L+4,Y(ref)-3)}
+}
+
+/* ① real vs ideal */
+function realCur(){const pi=+$('realPool').value||0,p=GAMES[gameKey].pools[pi],s=SNAP[gameKey];return {p,pi,cnt:[0,...s.f[pi]],N:s.T,k:p.draw,n:p.n}}
+function renderReal(){
+  const s=SNAP[gameKey];$('realMeta').textContent=`${s.from} → ${s.to} · ${s.T} 期`;
+  const r=realCur(),c=chiOf(r.cnt,r.N,r.k,r.n);let hi=1,lo=1;for(let i=1;i<=r.n;i++){if(r.cnt[i]>r.cnt[hi])hi=i;if(r.cnt[i]<r.cnt[lo])lo=i}
+  bars($('realFreq'),220,r.cnt,1,r.n,{ref:c.E,refLabel:'期望值 '+c.E.toFixed(1),color:i=>colorOf(i,r.n),xEvery:r.n>40?4:r.n>10?2:1});
+  $('realStats').innerHTML=`<div><small>真實期數</small><b>${r.N}</b></div><div><small>每號期望次數</small><b>${c.E.toFixed(1)}</b></div>
+   <div><small>最多 / 最少</small><b>${pad(hi)}（${r.cnt[hi]}） · ${pad(lo)}（${r.cnt[lo]}）</b></div>
+   <div><small>χ² (df=${c.df})</small><b>${c.X.toFixed(1)}</b></div><div><small>p 值（近似）</small><b>${c.p.toFixed(3)}</b></div>
+   <div><small>判讀 α=0.05</small><b><span class="pill ${c.p<0.05?'bad':'ok'}">${c.p<0.05?'偏離均勻':'符合均勻分布'}</span></b></div>`;
+  emptyMsg($('realChi'),170,'按「跑 1,000 台理想機台」看真實 χ² 的位置');
+  $('realNote').textContent='真實資料快照來自 Drive（歷史封存＋月檔＋增補＋勘誤合併）。按按鈕後，會用相同期數模擬 1,000 台完美均勻的開獎機，看真實結果的 χ² 落在哪裡。';
+}
+function runIdeal(){
+  const r=realCur(),real=chiOf(r.cnt,r.N,r.k,r.n).X,M=1000,xs=[],out=new Int16Array(8),cnt=new Float64Array(r.n+1);
+  for(let m=0;m<M;m++){cnt.fill(0);for(let t=0;t<r.N;t++){sampleK(r.n,r.k,out);for(let j=0;j<r.k;j++)cnt[out[j]]++}xs.push(chiOf(cnt,r.N,r.k,r.n).X)}
+  xs.sort((a,b)=>a-b);const ge=xs.filter(v=>v>=real).length/M,mx=Math.max(xs[M-1],real)*1.02,NB=30,bw=mx/NB,h=new Array(NB).fill(0);
+  xs.forEach(v=>h[Math.min(NB-1,Math.floor(v/bw))]++);const mb=Math.min(NB-1,Math.floor(real/bw));
+  bars($('realChi'),170,h,0,NB-1,{mark:mb,xlab:i=>Math.round(i*bw),xEvery:5});
+  const old=$('realStats').querySelector('[data-ideal]');if(old)old.remove();
+  $('realStats').insertAdjacentHTML('beforeend',`<div data-ideal><small>理想機台 χ² ≥ 真實的比例</small><b>${(ge*100).toFixed(1)}%</b></div>`);
+  $('realNote').textContent=`紅色長條是真實資料的 χ²。1,000 台完美隨機機台中，有 ${(ge*100).toFixed(1)}% 偏離得比真實開獎更大。`+(ge>0.05?'真實開獎看起來就像一台完美隨機的機器，冷熱號差異都在隨機波動範圍內。':'真實開獎的偏離程度少見，值得注意；但仍需先排除資料錯誤與多重比較。');
+}
+
+/* ② my numbers */
+function fillMy(){const d=PICKS[gameKey];$('myNums').value=d.nums.map(pad).join(' ');$('myN').value=d.N;$('myThr').value=d.thr;
+  $('myZ2Wrap').hidden=gameKey!=='power';if(d.z2)$('myZ2').value=d.z2;$('myThr').max=GAMES[gameKey].pools[0].draw;
+  $('myStats').innerHTML=`<div><small>目前推薦</small><b>${d.nums.map(pad).join(' ')}${d.z2?' ＋ '+pad(d.z2):''}</b></div><div><small>對應開獎</small><b>${d.draw}</b></div>`;
+  renderHyper();emptyMsg($('myHist'),170,'按「模擬 10,000 次」');}
+function myParse(){const p=GAMES[gameKey].pools[0];const nums=[...new Set(($('myNums').value.match(/\d+/g)||[]).map(Number).filter(v=>v>=1&&v<=p.n))];return {p,nums}}
+function renderHyper(){const p=GAMES[gameKey].pools[0],k=p.draw,n=p.n,tot=C(n,k);let rows='<tr><th>命中</th><th>機率</th><th>約每幾期一次</th></tr>';
+  for(let h=k;h>=0;h--){const pr=C(k,h)*C(n-k,k-h)/tot;rows+=`<tr><td>${h} 個</td><td>${pr<0.0001?pr.toExponential(2):(pr*100).toFixed(2)+'%'}</td><td>${pr>0?Math.round(1/pr).toLocaleString():'—'}</td></tr>`}
+  rows+=`<tr><td>平均</td><td colspan=2>每期命中 ${(k*k/n).toFixed(2)} 個</td></tr>`;$('myHyper').innerHTML=rows}
+function runMy(){
+  const {p,nums}=myParse(),k=p.draw,n=p.n;if(nums.length!==k){$('myStats').innerHTML=`<div><small>輸入錯誤</small><b>請輸入 ${k} 個不重複、1–${n} 的號碼</b></div>`;return}
+  const N=Math.max(1,Math.min(200,+$('myN').value||1)),thr=Math.max(1,Math.min(k,+$('myThr').value||1)),R=10000,set=new Uint8Array(n+1);nums.forEach(v=>set[v]=1);
+  const out=new Int16Array(8),rp=new Int16Array(8),rs=new Uint8Array(n+1),hist=new Array(N+1).fill(0);let fAny=0,rAny=0,fTot=0,rTot=0;
+  for(let r=0;r<R;r++){let cf=0,cr=0;for(let t=0;t<N;t++){sampleK(n,k,out);let h=0;for(let j=0;j<k;j++)h+=set[out[j]];if(h>=thr)cf++;
+      sampleK(n,k,rp);rs.fill(0);for(let j=0;j<k;j++)rs[rp[j]]=1;sampleK(n,k,out);let h2=0;for(let j=0;j<k;j++)h2+=rs[out[j]];if(h2>=thr)cr++}
+    hist[cf]++;fTot+=cf;rTot+=cr;if(cf)fAny++;if(cr)rAny++}
+  let pq=0;for(let h=thr;h<=k;h++)pq+=C(k,h)*C(n-k,k-h)/C(n,k);const pAny=1-(1-pq)**N;
+  let last=N;while(last>0&&hist[last]===0)last--;last=Math.min(N,Math.max(last,3));
+  bars($('myHist'),170,hist.map(v=>v/R*100),0,last,{yfmt:v=>v.toFixed(0)+'%',xEvery:last>12?2:1});
+  const z2=(gameKey==='power'&&+$('myZ2').value>=1)?`<div><small>第二區 ${N} 期內至少中一次</small><b>${((1-(7/8)**N)*100).toFixed(1)}%</b></div>`:'';
+  $('myStats').innerHTML=`<div><small>單期命中 ≥${thr} 個</small><b>${(pq*100).toFixed(2)}%</b></div>
+   <div><small>${N} 期內至少一次（理論）</small><b>${(pAny*100).toFixed(1)}%</b></div>
+   <div><small>固定號碼（模擬）</small><b>${(fAny/R*100).toFixed(1)}%</b></div>
+   <div><small>每期換號（模擬）</small><b>${(rAny/R*100).toFixed(1)}%</b></div>
+   <div><small>平均達標期數 固定 / 換號</small><b>${(fTot/R).toFixed(2)} / ${(rTot/R).toFixed(2)}</b></div>
+   <div><small>理論期望</small><b>${(N*pq).toFixed(2)} 期</b></div>${z2}`;
+}
+
+/* ③ power */
+const pwIdle=()=>{$('pwStats').innerHTML='';emptyMsg($('pwChart'),220,'按「計算偵測率」（約需數秒）')};
+function runPw(){
+  const pi=+$('realPool').value||0,p=GAMES[gameKey].pools[pi],n=p.n,k=p.draw,bias=Math.max(1,+$('pwBias').value||10)/100,trials=+$('pwTrials').value,T=SNAP[gameKey].T;
+  const cps=[...new Set([100,200,500,T,1000,2000,5000,10000,20000])].sort((a,b)=>a-b),maxN=cps[cps.length-1],det=new Array(cps.length).fill(0);
+  $('pwBusy').textContent='計算中…';$('runPw').disabled=true;
+  setTimeout(()=>{
+    const w=1+bias,totW=n-1+w,cnt=new Float64Array(n+1),used=new Uint8Array(n+1);
+    for(let tr=0;tr<trials;tr++){cnt.fill(0);let ci=0;
+      for(let t=1;t<=maxN;t++){used.fill(0);
+        for(let j=0;j<k;j++){let x;do{const r=fr()*totW;x=r<w?1:2+Math.floor((r-w)/(totW-w)*(n-1));if(x>n)x=n}while(used[x]);used[x]=1;cnt[x]++}
+        if(t===cps[ci]){if(chiOf(cnt,t,k,n).p<0.05)det[ci]++;ci++}}}
+    const pw=det.map(v=>v/trials);drawPw(cps,pw,T);
+    const iT=cps.indexOf(T);let need='超過 '+maxN.toLocaleString();for(let i=0;i<cps.length;i++)if(pw[i]>=0.8){need='約 '+cps[i].toLocaleString();break}
+    const perWk=gameKey==='d539'?6:2;
+    $('pwStats').innerHTML=`<div><small>偏差設定</small><b>單顆球 +${Math.round(bias*100)}%</b></div>
+     <div><small>目前 ${T} 期的偵測率</small><b>${(pw[iT]*100).toFixed(0)}%</b></div>
+     <div><small>偵測率達 80% 需要</small><b>${need} 期</b></div>
+     <div><small>換算（每週 ${perWk} 期）</small><b>${need.startsWith('約')?'約 '+Math.round(+need.replace(/\D/g,'')/perWk/52)+' 年':'數十年以上'}</b></div>`;
+    $('pwBusy').textContent='';$('runPw').disabled=false;},30);
+}
+function drawPw(cps,pw,T){
+  const {x,w,h}=setupCanvas($('pwChart'),220),L=40,B=22,TP=12,W_=w-L-12,ph=h-B-TP,lmin=Math.log10(cps[0]),lmax=Math.log10(cps[cps.length-1]);
+  const X=v=>L+(Math.log10(v)-lmin)/(lmax-lmin)*W_,Y=v=>TP+ph-v*ph;
+  x.font='11px "JetBrains Mono",monospace';x.strokeStyle=css('--line');x.fillStyle=css('--muted');x.textAlign='right';x.textBaseline='middle';
+  for(let t=0;t<=4;t++){const yy=Y(t/4);x.globalAlpha=.6;x.beginPath();x.moveTo(L,yy);x.lineTo(w-12,yy);x.stroke();x.globalAlpha=1;x.fillText(t*25+'%',L-4,yy)}
+  x.textAlign='center';x.textBaseline='top';[100,1000,10000].forEach(v=>x.fillText(v.toLocaleString(),X(v),TP+ph+5));
+  x.strokeStyle=css('--muted');x.setLineDash([3,4]);x.beginPath();x.moveTo(L,Y(.8));x.lineTo(w-12,Y(.8));x.stroke();x.setLineDash([]);x.textAlign='left';x.textBaseline='bottom';x.fillText('80%',L+4,Y(.8)-2);
+  x.strokeStyle=css('--accent');x.lineWidth=2;x.beginPath();x.moveTo(X(T),TP);x.lineTo(X(T),TP+ph);x.stroke();x.fillStyle=css('--accent');x.fillText('目前 '+T+' 期',X(T)+4,TP+12);
+  x.strokeStyle=css('--ink');x.lineWidth=2;x.beginPath();cps.forEach((v,i)=>{i?x.lineTo(X(v),Y(pw[i])):x.moveTo(X(v),Y(pw[i]))});x.stroke();
+  x.fillStyle=css('--ink');cps.forEach((v,i)=>{x.beginPath();x.arc(X(v),Y(pw[i]),3,0,7);x.fill()});
+}
+
+/* ④ backtest */
+function renderBt(){
+  const n=TRACK.length;$('btMeta').textContent=`已結算 ${n} 筆 · 待開獎 ${TRACK_PENDING} 筆 · 目標 ≥20 筆`;$('btBar').style.width=Math.min(100,n/20*100)+'%';
+  const meta={lotto:{n:49,k:6,name:'大樂透'},power:{n:38,k:6,name:'威力彩'},d539:{n:39,k:5,name:'539'}};
+  let rows='<tr><th>開獎</th><th>遊戲</th><th>推薦</th><th>命中</th><th>隨機平均</th><th>百分位</th></tr>',sys=0,exp=0,pctSum=0;const out=new Int16Array(8);
+  TRACK.forEach(t=>{const m=meta[t.g],act=new Set(t.act),sh=t.pick.filter(v=>act.has(v)).length;let le=0,sum=0;
+    for(let r=0;r<2000;r++){sampleK(m.n,m.k,out);let h=0;for(let j=0;j<m.k;j++)if(act.has(out[j]))h++;sum+=h;if(h<=sh)le++}
+    const pct=le/2000;sys+=sh;exp+=sum/2000;pctSum+=pct;
+    rows+=`<tr><td>${t.d}</td><td>${m.name}</td><td class="mono">${t.pick.map(v=>act.has(v)?'<span class="hit">'+pad(v)+'</span>':pad(v)).join(' ')}</td><td>${sh}</td><td>${(sum/2000).toFixed(2)}</td><td>${(pct*100).toFixed(0)}%</td></tr>`});
+  $('btTable').innerHTML=rows;const edge=sys-exp,ok=n>=20&&edge/n>0.3;
+  $('btStats').innerHTML=`<div><small>系統總命中</small><b>${sys}</b></div><div><small>隨機期望總命中</small><b>${exp.toFixed(2)}</b></div>
+   <div><small>差異（edge）</small><b>${edge>=0?'+':''}${edge.toFixed(2)}</b></div><div><small>平均百分位</small><b>${(pctSum/n*100).toFixed(0)}%</b></div>
+   <div><small>判讀</small><b><span class="pill ${ok?'ok':'bad'}">${n<20?'樣本不足（'+n+'/20）':(ok?'優於隨機':'與隨機無顯著差異')}</span></b></div>`;
+}
+function refreshExtras(){
+  const ps=$('realPool');const keep=ps.dataset.g===gameKey?ps.value:'0';ps.innerHTML='';
+  GAMES[gameKey].pools.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${p.label}（1–${p.n}）`;ps.append(o)});
+  ps.value=keep;ps.dataset.g=gameKey;$('realPoolWrap').hidden=GAMES[gameKey].pools.length<2;
+  renderReal();fillMy();pwIdle();
+}
+$('runIdeal').onclick=runIdeal;$('runMy').onclick=runMy;$('runPw').onclick=runPw;
+$('realPool').onchange=()=>{renderReal();pwIdle()};
+
+/* ---------- UI wiring ---------- */
+function buildTabs(){
+  const t=$('tabs');t.innerHTML='';
+  Object.entries(GAMES).forEach(([k,g])=>{const b=document.createElement('button');b.className='tab';b.role='tab';b.id='tab-'+k;
+    b.setAttribute('aria-selected',k===gameKey);b.innerHTML=`${g.name}<small>${g.tag}</small>`;
+    b.onclick=()=>{if(!['idle','done'].includes(state))return;gameKey=k;buildTabs();resetAll();try{localStorage.setItem('drawroom-game',k)}catch(e){}};t.append(b)});
+  const ps=$('pool');ps.innerHTML='';GAMES[gameKey].pools.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${p.label}（1–${p.n}）`;ps.append(o)});
+  $('poolwrap').hidden=GAMES[gameKey].pools.length<2;
+}
+function resetAll(){
+  layout();results=chambers.map(()=>[]);flying=[];activeIdx=0;gateOpen=false;
+  chambers.forEach(ch=>{loadBalls(ch);while(ch.loadQ.length)spawn(ch);ch.balls.forEach(b=>{b.x=ch.cx+(rnd()-.5)*ch.R*1.2;b.y=ch.cy+ch.R*0.3+(rnd()-.5)*ch.R*0.6})});
+  for(let s=0;s<200;s++)chambers.forEach(ch=>step(ch,0.01,false));
+  setPhase('idle');$('go').disabled=false;$('go').textContent='開始開獎';renderTray();
+  runSim();refreshExtras();
+}
+$('go').onclick=start;
+$('reset').onclick=()=>{state='idle';resetAll()};
+$('runsim').onclick=runSim;
+$('pool').onchange=()=>{lastSim=null;$('stats').innerHTML='';drawFreq()};
+window.addEventListener('resize',()=>{if(state==='idle')resetAll();drawFreq()});
+try{const g=localStorage.getItem('drawroom-game');if(g&&GAMES[g])gameKey=g}catch(e){}
+buildTabs();resetAll();renderBt();
+requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
